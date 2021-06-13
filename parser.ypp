@@ -1,0 +1,119 @@
+%{
+/* Declarations section */
+    #include <iostream>
+    #include <stdlib.h>
+    #include "Semantics.h"
+    #include "hw3_output.hpp"
+    using namespace std;
+    extern int yylex();
+    extern int yylineno;
+    int yyerror(const char * message);
+%}
+
+/* Rules section */
+
+%nonassoc VOID;
+%nonassoc INT;
+%nonassoc BYTE;
+%nonassoc B;
+%nonassoc BOOL;
+%nonassoc TRUE;
+%nonassoc FALSE;
+%nonassoc RETURN;
+%nonassoc IF;
+%nonassoc ELSE;
+%nonassoc WHILE;
+%nonassoc BREAK;
+%nonassoc CONTINUE;
+%nonassoc SC;
+%nonassoc COMMA;
+%nonassoc ID;
+%nonassoc NUM;
+%nonassoc STRING;
+%right ASSIGN;
+%left OR;
+%left AND;
+%left EQ_NEQ_RELOP;
+%nonassoc REL_RELOP;
+%left ADD_SUB_BINOP;
+%left MUL_DIV_BINOP;
+%right NOT;
+%nonassoc SWITCH;
+%nonassoc CASE;
+%nonassoc DEFAULT;
+%nonassoc COLON;
+%left RBRACE;
+%left LBRACE;
+%left RPAREN;
+%left LPAREN;
+
+%nonassoc SECOND_PRIOR;
+%nonassoc FIRST_PRIOR;
+%%
+
+Program : {$$ = new Program();} Funcs {exitProgramRuntime();};
+Funcs : %prec SECOND_PRIOR{$$ = new Funcs();} |
+        FuncDecl Funcs %prec FIRST_PRIOR{$$ = new Funcs();};
+
+FuncDecl: RetType ID LPAREN Formals RPAREN {$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2,dynamic_cast<Formals*>($4));} LBRACE OS {insertFunctionParameters(dynamic_cast<Formals*>($4));} Statements CS {exitProgramFuncs();} RBRACE;
+RetType: Type{$$ = new RetType(dynamic_cast<Type*>($1));} | VOID{$$ = new RetType($1);};
+Formals : {$$ = new Formals();} | FormalsList{$$ = new Formals(dynamic_cast<FormalsList*>($1));};
+FormalsList : FormalDecl{$$ = new FormalsList(dynamic_cast<FormalDecl*>($1));} |
+FormalDecl COMMA FormalsList{$$ = new FormalsList(dynamic_cast<FormalDecl*>($1), dynamic_cast<FormalsList*>($3));};
+FormalDecl : Type ID{$$ = new FormalDecl(dynamic_cast<Type*>($1), $2);};
+Statements : Statement{$$ = new Statements(dynamic_cast<Statement*>($1));} |
+             Statements Statement{$$ = new Statements(dynamic_cast<Statements*>($1), dynamic_cast<Statement*>($2));};
+Statement : LBRACE OS Statements CS RBRACE {$$ = new Statement(dynamic_cast<Statements*>($3));} |
+            Type ID SC{$$ = new Statement(dynamic_cast<Type*>($1),$2);} |
+            Type ID ASSIGN Exp SC{$$ = new Statement(dynamic_cast<Type*>($1),$2, dynamic_cast<Exp*>($4));} |
+            ID ASSIGN Exp SC{$$ = new Statement($1, dynamic_cast<Exp*>($3));} |
+            Call SC{$$ = new Statement(dynamic_cast<Call*>($1));} |
+            RETURN SC{$$ = new Statement("VOID");} |
+            RETURN Exp SC{$$ = new Statement(dynamic_cast<Exp*>($2));} |
+            IF LPAREN Exp RPAREN OS Statement %prec IF {$$ = new Statement("if", dynamic_cast<Exp*>($3));closeCurrentScope();} |
+            IF LPAREN Exp RPAREN OS Statement ELSE {$$ = new Statement("if else", dynamic_cast<Exp*>($3));closeCurrentScope();} OS Statement CS |
+            WHILE LPAREN Exp RPAREN {$$ = new Statement("while", dynamic_cast<Exp*>($3));enterLoop();} OS Statement CS{exitLoop();} |
+            BREAK SC{$$ = new Statement($1);} |
+            CONTINUE SC{$$ = new Statement($1);} |
+            SWITCH {enterSwitch();} LPAREN Exp {new Exp(dynamic_cast<Exp*>($4), "switch");} RPAREN LBRACE OS CaseList {$$ = new Statement(dynamic_cast<Exp*>($4),dynamic_cast<CaseList*>($9));} CS {exitSwitch();} RBRACE;
+Call : ID LPAREN ExpList RPAREN{$$ = new Call($1, dynamic_cast<ExpList*>($3));} |
+       ID LPAREN RPAREN{$$ = new Call($1);};
+ExpList : Exp{$$ = new ExpList(dynamic_cast<Exp*>($1));} |
+          Exp COMMA ExpList{$$ = new ExpList(dynamic_cast<Exp*>($1), dynamic_cast<ExpList*>($3));};
+Type : INT{$$ = new Type($1);} |
+       BYTE{$$ = new Type($1);} |
+       BOOL{$$ = new Type($1);};
+Exp : LPAREN Exp RPAREN{$$ = new Exp(dynamic_cast<Exp*>($2));} |
+      Exp ADD_SUB_BINOP Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "ADD_SUB_BINOP");} |
+      Exp MUL_DIV_BINOP Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "MUL_DIV_BINOP");} |
+      ID{$$ = new Exp($1);} |
+      Call{$$ = new Exp(dynamic_cast<Call*>($1));} |
+      NUM{$$ = new Exp($1, "NUM");} |
+      NUM B{$$ = new Exp($1, "BYTE");} |
+      STRING{$$ = new Exp($1, "STRING");} |
+      TRUE{$$ = new Exp($1, "BOOL");} |
+      FALSE{$$ = new Exp($1, "BOOL");} |
+      NOT Exp{$$ = new Exp($1, dynamic_cast<Exp*>($2));} |
+      Exp AND Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "AND");} |
+      Exp OR Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "OR");} |
+      Exp EQ_NEQ_RELOP Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "EQ_NEQ_RELOP");} |
+      Exp REL_RELOP Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "REL_RELOP");};
+CaseList : CaseDecl CaseList{$$ = new CaseList(dynamic_cast<CaseDecl*>($1),dynamic_cast<CaseList*>($2));} |
+           CaseDecl{$$ = new CaseList(dynamic_cast<CaseDecl*>($1));} |
+           DEFAULT COLON Statements{$$ = new CaseList(dynamic_cast<Statements*>($3));};
+CaseDecl : CASE NUM COLON Statements{$$ = new CaseDecl(new Exp($2, "NUM"), dynamic_cast<Statements*>($4));};
+OS : {openNewScope();}
+CS : {closeCurrentScope();}
+
+%%
+
+/* Code section */
+
+int main() {
+    return yyparse();
+}
+
+int yyerror(const char * message) {
+    output::errorSyn(yylineno);
+    exit(0);
+}
