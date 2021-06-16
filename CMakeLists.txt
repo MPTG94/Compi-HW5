@@ -8,6 +8,8 @@ add_compile_options(-Wall -pedantic)
 add_executable(hw5
         bp.cpp
         bp.hpp
+        Registers.cpp
+        Registers.h
         Semantics.cpp
         Semantics.h
         scanner.lex
