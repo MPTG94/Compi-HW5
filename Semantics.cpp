@@ -408,6 +408,9 @@ Exp::Exp(Call *call) {
     if (DEBUG) printMessage("in exp call");
     value = call->value;
     type = call->value;
+    instruction = call->instruction;
+    trueList = vector<pair<int, BranchLabelIndex>>();
+    falseList = vector<pair<int, BranchLabelIndex>>();
 }
 
 Exp::Exp(TypeNode *id) {
@@ -420,6 +423,8 @@ Exp::Exp(TypeNode *id) {
         output::errorUndef(yylineno, id->value);
         exit(0);
     }
+    trueList = vector<pair<int, BranchLabelIndex>>();
+    falseList = vector<pair<int, BranchLabelIndex>>();
 
     // Need to save the type of the variable function as the type of the expression
     for (int i = symTabStack.size() - 1; i >= 0; --i) {
@@ -433,6 +438,7 @@ Exp::Exp(TypeNode *id) {
                 value = id->value;
                 // Getting the type of the variable, or the return type of the function
                 type = row->type.back();
+                regName = loadVariableFromSymTab(row->offset, type);
                 return;
             }
         }
@@ -520,6 +526,10 @@ Exp::Exp(Exp *ex) {
     value = ex->value;
     type = ex->type;
     valueAsBooleanValue = ex->valueAsBooleanValue;
+    regName = ex->regName;
+    instruction = ex->instruction;
+    trueList = ex->trueList;
+    falseList = ex->falseList;
 }
 
 // for Exp RELOP, MUL, DIV, ADD, SUB, OR, AND Exp
@@ -667,8 +677,11 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 // bpatch, so that if the first boolean expression in the AND is false, we give the register value 0 (false)
                 // otherwise we take the value of e2.regName
                 buffer.emit("%" + regName + " = phi i1 [%" + e2->regName + ", %" + instruction + "],[0, %" + leftIsFalseLabel + "]");
+                // backpatch the jump to check the second condition in the AND if it's true
                 buffer.bpatch(buffer.makelist({leftHandInstr->loc, FIRST}), leftHandInstr->instruction);
+                // backpatch the jump outside of the expression if the first condition is false
                 buffer.bpatch(buffer.makelist({leftHandInstr->loc, SECOND}), leftIsFalseLabel);
+                // backpatch the jump outside of the expression to after the if block
                 buffer.bpatch(buffer.makelist({firstCheckIsFalseBranchJump, FIRST}), end);
                 buffer.bpatch(buffer.makelist({secondCheckIsFalseLabel, FIRST}), end);
                 if (e1->valueAsBooleanValue && e2->valueAsBooleanValue) {
@@ -677,6 +690,20 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                     valueAsBooleanValue = false;
                 }
             } else if (op->value == "OR") {
+                int firstCheckIsTrueBranchJump = buffer.emit("br label @");
+                string leftIsTrueLabel = buffer.genLabel();
+                int secondCheckIsTrueLabel = buffer.emit("br label @");
+                end = buffer.genLabel();
+                // bpatch, so that if the first boolean expression in the OR is true, we give the register value 1 (true)
+                // otherwise we take the value of e2.regName (either true or false, but still the correct value)
+                buffer.emit("%" + regName + " = phi i1 [%" + e2->regName + ", %" + instruction + "],[1, %" + leftIsTrueLabel + "]");
+                // backpatch the jump to outside if the if, in case the first expression is true
+                buffer.bpatch(buffer.makelist({leftHandInstr->loc, FIRST}), leftIsTrueLabel);
+                // backpatch the jump to the second expression of the if, in case the first expression is false
+                buffer.bpatch(buffer.makelist({leftHandInstr->loc, SECOND}), leftHandInstr->instruction);
+                // backpatch the jump outside of the expression to after the if block
+                buffer.bpatch(buffer.makelist({firstCheckIsTrueBranchJump, FIRST}), end);
+                buffer.bpatch(buffer.makelist({secondCheckIsTrueLabel, FIRST}), end);
                 if (e1->valueAsBooleanValue || e2->valueAsBooleanValue) {
                     valueAsBooleanValue = true;
                 } else {
@@ -693,11 +720,41 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
     }
 }
 
+// TODO: update this so it prints out correct LLVM code
 Exp::Exp(Exp *e1, string tag) {
     if (tag == "switch" && (e1->type != "INT" && e1->type != "BYTE")) {
         output::errorMismatch(yylineno);
         exit(0);
     }
+}
+
+string loadVariableFromSymTab(int offset, string type) {
+    string reg = registerPool.GetNewRegister();
+    string ptrRegister = registerPool.GetNewRegister();
+    if (offset >= 0) {
+        // this variable is declared inside the function, and not part of the function parameters
+        buffer.emit("%" + ptrRegister + " = getelementptr [ 50 x i32], [ 50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    } else if (offset < 0 && currentRunningFunctionArgumentsNumber > 0) {
+        // this variable is one of the function parameters
+        buffer.emit("%" + ptrRegister + " = getelementptr [ " + to_string(currentRunningFunctionArgumentsNumber) + " x i32], [ " +
+                    to_string(currentRunningFunctionArgumentsNumber) + " x i32]* %args, i32 0, i32 " +
+                    to_string(currentRunningFunctionArgumentsNumber + offset));
+    } else {
+        // The requested variable is at a negative offset, but there are no function parameters, this is an error
+        if (DEBUG) {
+            printMessage("SHOULDN'T GET HERE");
+        }
+    }
+    // load the value pointed by the pointer, into the register
+    buffer.emit("%" + reg + " = load i32, i32* %" + ptrRegister);
+    string varType = GetLLVMType(type);
+    string regName = reg;
+    if (varType != "i32") {
+        // Shortening the new register to it's correct width
+        regName = registerPool.GetNewRegister();
+        buffer.emit("%" + regName + " = trunc i32 %" + reg + " to " + varType);
+    }
+    return regName;
 }
 
 ExpList::ExpList(Exp *exp) {
@@ -979,4 +1036,25 @@ N::N() {
 TypeNode *doCompare(Exp *leftHandInstr) {
     TypeNode *node = new P(leftHandInstr);
     return node;
+}
+
+void backPatchIf(M *label, Exp *exp) {
+    int loc = buffer.emit("br label @");
+    string end = buffer.genLabel();
+    // Patching the jump to the if instruction in case the IF condition is true
+    buffer.bpatch(exp->trueList, label->instruction);
+    // Patching the jump outside of the if in case the IF condition is false
+    buffer.bpatch(exp->falseList, end);
+    buffer.bpatch(buffer.makelist({loc, FIRST}), end);
+}
+
+void backpatchIfElse(M *label1, N *label2, Exp *exp) {
+    int loc = buffer.emit("br label @");
+    string end = buffer.genLabel();
+    // Patching the jump to the if instruction in case the IF condition is true
+    buffer.bpatch(exp->trueList, label1->instruction);
+    // Patching the jump to the else instruction in case the IF condition is false
+    buffer.bpatch(exp->falseList, label2->instruction);
+    buffer.bpatch(buffer.makelist({label2->loc, FIRST}), end);
+    buffer.bpatch(buffer.makelist({loc, FIRST}), end);
 }

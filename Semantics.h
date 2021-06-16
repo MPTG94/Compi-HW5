@@ -29,6 +29,8 @@ void openNewScope();
 
 void closeCurrentScope();
 
+string loadVariableFromSymTab(int offset, string type);
+
 void printMessage(string message);
 
 bool isDeclared(const string &name);
