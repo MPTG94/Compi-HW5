@@ -3,6 +3,7 @@
 //
 
 #include "Semantics.h"
+#include "Registers.h"
 
 #include "iostream"
 #include <memory>
@@ -10,11 +11,14 @@
 
 extern char *yytext;
 int DEBUG = 0;
+Registers registerPool;
+CodeBuffer &buffer = CodeBuffer::instance();
 vector<shared_ptr<SymbolTable>> symTabStack;
 vector<int> offsetStack;
 vector<string> varTypes = {"VOID", "INT", "BYTE", "BOOL", "STRING"};
 
 string currentRunningFunctionScopeId;
+int currentRunningFunctionArgumentsNumber = 0;
 
 void printVector(vector<string> vec) {
     for (auto &i : vec) {
@@ -24,6 +28,19 @@ void printVector(vector<string> vec) {
 
 void printMessage(string message) {
     std::cout << message << std::endl;
+}
+
+// Converts a FanC return type, to a LLVM return type
+string GetLLVMType(string type) {
+    if (type == "VOID") {
+        return "void";
+    } else if (type == "BOOL") {
+        return "i1";
+    } else if (type == "BYTE") {
+        return "i8";
+    } else if (type == "STRING") {
+        return "i8";
+    } else return "i32";
 }
 
 void printSymTabRow(shared_ptr<SymbolTableRow> row) {
@@ -51,6 +68,8 @@ void enterSwitch() {
 }
 
 void exitSwitch() {
+    // TODO: need to add label to jump outside of the switch in case of all breaks, or when a case was true, we performed it and it ends with a break
+    // (so we can jump outside without performing other case blocks)
     if (DEBUG) printMessage("Exiting Switch block");
     switchCounter--;
 }
@@ -59,12 +78,38 @@ void enterLoop() {
     loopCounter++;
 }
 
-void exitLoop() {
+void exitLoop(N *first, P *second, Statement *statement) {
     loopCounter--;
+    int loc = buffer.emit("br label @");
+    string label = buffer.genLabel();
+    // backpatch the jump back to the loop condition evaluation
+    buffer.bpatch(buffer.makelist({first->loc, FIRST}), first->instruction);
+    // backpatch the jump inside the loop if the condition is still true
+    buffer.bpatch(buffer.makelist({second->loc, FIRST}), second->instruction);
+    // backpatch the jump outside the loop if the condition is false
+    buffer.bpatch(buffer.makelist({second->loc, SECOND}), label);
+    // backpatch the unconditional jump at the end of the loop to the condition evaluation
+    buffer.bpatch(buffer.makelist({loc, FIRST}), first->instruction);
+    if (!statement->breakList.empty()) {
+        // backpatch the jump outside the loop in case of a break
+        buffer.bpatch(statement->breakList, label);
+    }
+    if (!statement->continueList.empty()) {
+        // backpatch the jump to the condition evaluation in case of a continue
+        buffer.bpatch(statement->continueList, first->instruction);
+    }
 }
 
-void exitProgramFuncs() {
+void exitProgramFuncs(RetType *ret) {
+    if (ret->value == "VOID") {
+        buffer.emit("ret void");
+    } else {
+        string funcReturnType = GetLLVMType(ret->value);
+        buffer.emit("ret " + funcReturnType + " 0");
+    }
+    buffer.emit("}");
     currentRunningFunctionScopeId = "";
+    currentRunningFunctionArgumentsNumber = 0;
 }
 
 void exitProgramRuntime() {
@@ -157,7 +202,7 @@ SymbolTableRow::SymbolTableRow(string name, vector<string> type, int offset, boo
 
 }
 
-TypeNode::TypeNode(string str) : value() {
+TypeNode::TypeNode(string str) : regName(""), value(), instruction("") {
     if (str == "void") {
         value = "VOID";
     } else if (str == "bool") {
@@ -173,6 +218,8 @@ TypeNode::TypeNode(string str) : value() {
 
 TypeNode::TypeNode() {
     value = "";
+    instruction = "";
+    regName = "";
 }
 
 ostream &operator<<(ostream &os, const TypeNode &node) {
@@ -191,6 +238,28 @@ Program::Program() : TypeNode("Program") {
     symTabStack.push_back(symTab);
     // Placing the global symbol table at the bottom of the offset stack
     offsetStack.push_back(0);
+
+    // Declaring staff functions in LLVM code
+    buffer.emitGlobal("declare i32 @printf(i8*, ...)");
+    buffer.emitGlobal("declare void @exit(i32)");
+
+    // Declaring staff int specifier
+    buffer.emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
+    // Declaring staff string specifier
+    buffer.emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
+    buffer.emitGlobal("@ThrowZeroException = constant [22 x i8] c\"Error division by zero\"");
+
+    // declaration of global printi function
+    buffer.emitGlobal("define void @printi(i32) {");
+    buffer.emitGlobal("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0), i32 %0)");
+    buffer.emitGlobal("ret void");
+    buffer.emitGlobal("}");
+
+    // declaration of global print function
+    buffer.emitGlobal("define void @print(i8*) {");
+    buffer.emitGlobal("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.str_specifier, i32 0, i32 0), i8* %0)");
+    buffer.emitGlobal("ret void");
+    buffer.emitGlobal("}");
 }
 
 RetType::RetType(TypeNode *type) : TypeNode(type->value) {
@@ -377,7 +446,13 @@ Exp::Exp(TypeNode *notNode, Exp *exp) {
         exit(0);
     }
     type = "BOOL";
+    regName = registerPool.GetNewRegister();
+    // reversing the value of exp because we apply NOT
+    buffer.emit("%" + regName + " = add i1 1, %" + exp->regName);
     valueAsBooleanValue = !valueAsBooleanValue;
+    // we reversed the logical boolean meaning, so we are reversing the true and false lists
+    falseList = exp->trueList;
+    trueList = exp->falseList;
 }
 
 Exp::Exp(TypeNode *terminal, string taggedTypeFromParser) : TypeNode(terminal->value) {
@@ -388,9 +463,16 @@ Exp::Exp(TypeNode *terminal, string taggedTypeFromParser) : TypeNode(terminal->v
         printMessage(taggedTypeFromParser);
 
     }
+    // In this function after figuring out the type of the terminal we:
+    // 1. create a new register for this data declaration
+    // 2. Set the value of the new register to the value of the terminal
     type = taggedTypeFromParser;
+    trueList = vector<pair<int, BranchLabelIndex>>();
+    falseList = vector<pair<int, BranchLabelIndex>>();
     if (taggedTypeFromParser == "NUM") {
         type = "INT";
+        regName = registerPool.GetNewRegister();
+        buffer.emit("%" + regName + " = add i32 0," + terminal->value);
     }
     if (type == "BYTE") {
         // Need to check that BYTE size is legal
@@ -399,14 +481,26 @@ Exp::Exp(TypeNode *terminal, string taggedTypeFromParser) : TypeNode(terminal->v
             output::errorByteTooLarge(yylineno, terminal->value);
             exit(0);
         }
+        regName = registerPool.GetNewRegister();
+        buffer.emit("%" + regName + " = add i8 0," + terminal->value);
     }
     if (type == "BOOL") {
+        regName = registerPool.GetNewRegister();
         if (terminal->value == "true") {
             valueAsBooleanValue = true;
+            buffer.emit("%" + regName + " = add i1 0,1");
         } else {
             valueAsBooleanValue = false;
+            buffer.emit("%" + regName + " = add i1 0,0");
         }
     }
+    // If we reached here, the type is STRING
+    regName = registerPool.GetNewRegister();
+    // replacing the default string null terminator with an explicit null terminator for LLVM
+    terminal->value[terminal->value.size() - 1] = '\00';
+    int size = terminal->value.size();
+    buffer.emitGlobal("@" + regName + "= constant [" + to_string(size) + " x i8] c\"" + terminal->value + "\"");
+    buffer.emit("%" + regName + "= getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + regName + ", i8 0, i8 0");
     if (DEBUG) {
         printMessage("now tagged as:");
         printMessage(type);
@@ -429,26 +523,154 @@ Exp::Exp(Exp *ex) {
 }
 
 // for Exp RELOP, MUL, DIV, ADD, SUB, OR, AND Exp
-Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser) {
+Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *leftHandInstr) {
+    regName = registerPool.GetNewRegister();
+    trueList = vector<pair<int, BranchLabelIndex>>();
+    falseList = vector<pair<int, BranchLabelIndex>>();
+    string end = "";
     // Need to check the type of the expressions on each side, to make sure that a logical operator (AND/OR) is used on a boolean type
     if ((e1->type == "INT" || e1->type == "BYTE") && (e2->type == "INT" || e2->type == "BYTE")) {
         if (taggedTypeFromParser == "EQ_NEQ_RELOP" || taggedTypeFromParser == "REL_RELOP") {
             // This is a boolean operation performed between 2 numbers (>=,<=,>,<,!=,==)
             type = "BOOL";
+            string llvmSize = "i8";
+            if (e1->type == "INT" || e2->type == "INT") {
+                llvmSize = "i32";
+            }
+            string relop;
+            if (op->value == "==") {
+                relop = "eq";
+            } else if (op->value == "!=") {
+                relop = "ne";
+            } else if (op->value == ">") {
+                relop = "sgt";
+                if (llvmSize == "i8") {
+                    relop = "ugt";
+                }
+            } else if (op->value == "<") {
+                relop = "slt";
+                if (llvmSize == "i8") {
+                    relop = "ult";
+                }
+            } else if (op->value == ">=") {
+                relop = "sge";
+                if (llvmSize == "i8") {
+                    relop = "uge";
+                }
+            } else if (op->value == "<=") {
+                relop = "sle";
+                if (llvmSize == "i8") {
+                    relop = "ule";
+                }
+            }
+            string leftRegister = e1->regName;
+            string rightRegister = e2->regName;
+            if (llvmSize == "i32") {
+                if (e1->type == "BYTE") {
+                    // This is a byte register, need to zero extend to i32 for int operations
+                    leftRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                }
+                if (e2->type == "BYTE") {
+                    // This is a byte register, need to zero extend to i32 for int operations
+                    rightRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+                }
+            }
+            buffer.emit("%" + regName + " = icmp " + relop + " " + llvmSize + " %" + leftRegister + " , %" + rightRegister);
+            if (e2->instruction != "") {
+                end = e2->instruction;
+            } else {
+                end = e1->instruction;
+            }
         } else if (taggedTypeFromParser == "ADD_SUB_BINOP" || taggedTypeFromParser == "MUL_DIV_BINOP") {
             // This is an arithmetic operation between two numbers
+            type = "BYTE";
+            string llvmSize = "i8";
             if (e1->type == "INT" || e2->type == "INT") {
-                // An automatic cast to int will be performed in case one of the operands is of integer type
                 type = "INT";
-            } else {
-                type = "BYTE";
+                string llvmSize = "i32";
+            }
+            regName = registerPool.GetNewRegister();
+            string operation;
+            string leftRegister = e1->regName;
+            string rightRegister = e2->regName;
+            if (op->value == "+") {
+                operation = "add";
+            } else if (op->value == "-") {
+                operation = "sub";
+            } else if (op->value == "*") {
+                operation = "mul";
+            } else if (op->value == "/") {
+                string condition = registerPool.GetNewRegister();
+                if (e1->type == "BYTE") {
+                    leftRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                }
+                if (e2->type == "BYTE") {
+                    rightRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+                }
+                // Checking if the right hand side is 0 and jumping accordingly
+                buffer.emit("%" + condition + " = icmp eq i32 %" + rightRegister + ", 0");
+                int zeroDivisionBranchCheck = buffer.emit("br i1 %" + condition + ", label @, label @");
+                string zeroDivisionCaseLabel = buffer.genLabel();
+                string zeroDivisionExceptionReg = registerPool.GetNewRegister();
+                buffer.emit("%" + zeroDivisionExceptionReg + " = getelementptr [22 x i8], [22 x i8]* @ThrowZeroException, i32 0, i32 0");
+                buffer.emit("call void @print(i8* %" + zeroDivisionExceptionReg + ")");
+                buffer.emit("call void @exit(i32 0");
+                int normalDivisionCaseLabelLoc = buffer.emit("br label @");
+                string normalDivisionBranchLabel = buffer.genLabel();
+                // Backpatching the check, so that it jumps to the handler for zero division
+                buffer.bpatch(buffer.makelist({zeroDivisionBranchCheck, FIRST}), zeroDivisionCaseLabel);
+                // Backpatching the check, so that is jumps to the normal divison handler
+                buffer.bpatch(buffer.makelist({zeroDivisionBranchCheck, SECOND}), normalDivisionBranchLabel);
+                // Backpatching the emitted label, so it jumps to the correct place
+                buffer.bpatch(buffer.makelist({normalDivisionCaseLabelLoc, FIRST}), normalDivisionBranchLabel);
+                string llvmSize = "i32";
+                operation = "sdiv";
+                end = normalDivisionBranchLabel;
+            }
+            if (llvmSize == "i32") {
+                if (e1->type == "BYTE") {
+                    leftRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                }
+                if (e2->type == "BYTE") {
+                    rightRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+                }
+            }
+            buffer.emit("%" + regName + " = " + operation + " " + llvmSize + " %" + leftRegister + ", %" + rightRegister);
+            if (operation == "sdiv" && e1->type == "BYTE" && e2->type == "BYTE") {
+                // We truncate the i32 divison result back to i8
+                string tempReg = registerPool.GetNewRegister();
+                buffer.emit("%" + tempReg + " = trunc i32 %" + regName + " to i8");
+                regName = tempReg;
             }
         }
     } else if (e1->type == "BOOL" && e2->type == "BOOL") {
         // Both operands are boolean so this should be a boolean operation
         type = "BOOL";
         if (taggedTypeFromParser == "AND" || taggedTypeFromParser == "OR") {
+            string boolop;
+            if (e2->instruction != "") {
+                instruction = e2->instruction;
+            } else {
+                instruction = leftHandInstr->instruction;
+            }
             if (op->value == "AND") {
+                int firstCheckIsFalseBranchJump = buffer.emit("br label @");
+                string leftIsFalseLabel = buffer.genLabel();
+                int secondCheckIsFalseLabel = buffer.emit("br label @");
+                end = buffer.genLabel();
+                // bpatch, so that if the first boolean expression in the AND is false, we give the register value 0 (false)
+                // otherwise we take the value of e2.regName
+                buffer.emit("%" + regName + " = phi i1 [%" + e2->regName + ", %" + instruction + "],[0, %" + leftIsFalseLabel + "]");
+                buffer.bpatch(buffer.makelist({leftHandInstr->loc, FIRST}), leftHandInstr->instruction);
+                buffer.bpatch(buffer.makelist({leftHandInstr->loc, SECOND}), leftIsFalseLabel);
+                buffer.bpatch(buffer.makelist({firstCheckIsFalseBranchJump, FIRST}), end);
+                buffer.bpatch(buffer.makelist({secondCheckIsFalseLabel, FIRST}), end);
                 if (e1->valueAsBooleanValue && e2->valueAsBooleanValue) {
                     valueAsBooleanValue = true;
                 } else {
@@ -737,4 +959,24 @@ Funcs::Funcs() {
         output::errorSyn(yylineno);
         exit(0);
     }
+}
+
+P::P(Exp *leftHandInstr) {
+    // TODO: check that two @ signs are the correct syntax
+    loc = buffer.emit("br i1 %" + leftHandInstr->regName + ", label @, label @");
+    instruction = buffer.genLabel();
+}
+
+M::M() {
+    instruction = buffer.genLabel();
+}
+
+N::N() {
+    loc = buffer.emit("br label @");
+    instruction = buffer.genLabel();
+}
+
+TypeNode *doCompare(Exp *leftHandInstr) {
+    TypeNode *node = new P(leftHandInstr);
+    return node;
 }

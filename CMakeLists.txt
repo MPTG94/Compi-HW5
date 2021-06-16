@@ -12,6 +12,8 @@ add_executable(hw5
         Registers.h
         Semantics.cpp
         Semantics.h
+        hw3_output.cpp
+        hw3_output.hpp
         scanner.lex
         parser.ypp
         lex.yy.c

@@ -11,9 +11,10 @@
 #include <utility>
 #include <ostream>
 #include "hw3_output.hpp"
+#include "bp.hpp"
 
 extern int yylineno;
-extern char * yytext;
+extern char *yytext;
 using namespace std;
 
 void enterSwitch();
@@ -21,10 +22,6 @@ void enterSwitch();
 void exitSwitch();
 
 void enterLoop();
-
-void exitLoop();
-
-void exitProgramFuncs();
 
 void exitProgramRuntime();
 
@@ -35,7 +32,10 @@ void closeCurrentScope();
 void printMessage(string message);
 
 bool isDeclared(const string &name);
+
 bool isDeclaredVariable(const string &name);
+
+string GetLLVMType(string type);
 
 // Single row in the table of a scope
 class SymbolTableRow {
@@ -61,7 +61,9 @@ public:
 
 class TypeNode {
 public:
+    string regName;
     string value;
+    string instruction;
 
     explicit TypeNode(string str);
 
@@ -79,13 +81,34 @@ public:
     explicit Type(TypeNode *type);
 };
 
+class M : public TypeNode {
+public:
+    string instruction;
+
+    M();
+};
+
+class N : public TypeNode {
+public:
+    string instruction;
+    int loc;
+
+    N();
+};
+
 class Call;
+
+class P;
 
 class Exp : public TypeNode {
 public:
     // Type is used for tagging in bison when creating the Exp object
     string type;
     bool valueAsBooleanValue;
+    vector<pair<int, BranchLabelIndex>> trueList;
+    vector<pair<int, BranchLabelIndex>> falseList;
+    string startLabel;
+    int loc;
 
     // This is for NUM, NUM B, STRING, TRUE and FALSE
     Exp(TypeNode *terminal, string taggedTypeFromParser);
@@ -100,13 +123,24 @@ public:
     Exp(TypeNode *notNode, Exp *exp);
 
     // for Exp RELOP, MUL, DIV, ADD, SUB, OR, AND Exp
-    Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser);
+    Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *leftHandInstr = nullptr);
 
     // for Exp ID
     explicit Exp(TypeNode *id);
 
     // for Lparen Exp Rparen, need to just remove the parentheses
     Exp(Exp *ex);
+};
+
+// TODO: rename this
+TypeNode *doCompare(Exp *leftHandInstr);
+
+class P : public TypeNode {
+public:
+    string instruction;
+    int loc;
+
+    explicit P(Exp *leftHandInstr);
 };
 
 class ExpList : public TypeNode {
@@ -130,6 +164,8 @@ public:
     explicit RetType(TypeNode *type);
 };
 
+void exitProgramFuncs(RetType* ret);
+
 class Statements;
 
 class CaseList;
@@ -138,6 +174,9 @@ class CaseList;
 class Statement : public TypeNode {
 public:
     string dataTag;
+    string regName;
+    vector<pair<int, BranchLabelIndex>> breakList;
+    vector<pair<int, BranchLabelIndex>> continueList;
 
     // For Lbrace Statements Rbrace
     explicit Statement(Statements *states);
@@ -155,13 +194,13 @@ public:
     explicit Statement(Call *call);
 
     // For Return SC -> this is for a function with a void return type
-    explicit Statement(const string& funcReturnType);
+    explicit Statement(const string &funcReturnType);
 
     // For Return Exp SC -> This is for a non-void function, exp stores the type so it is enough
     explicit Statement(Exp *exp);
 
     // For if,if/else,while
-    Statement(string type, Exp *exp);
+    Statement(string type, Exp *exp, Statement *innerStatement = nullptr);
 
     // For break,continue
     explicit Statement(TypeNode *type);
@@ -170,8 +209,15 @@ public:
     Statement(Exp *exp, CaseList *cList);
 };
 
+Statement *addElseStatementToBlock(Statement *ifStatement, Statement *elseStatment);
+
+void exitLoop(N *first, P *second, Statement *statement);
+
 class Statements : public TypeNode {
 public:
+    vector<pair<int, BranchLabelIndex>> breakList;
+    vector<pair<int, BranchLabelIndex>> continueList;
+
     // For Statement
     explicit Statements(Statement *state);
 
@@ -250,5 +296,9 @@ public:
 };
 
 void insertFunctionParameters(Formals *formals);
+
+void backpatchIf(M *label, Exp *exp);
+
+void backpatchIfElse(M *firstLabel, N *secondlabel, Exp *exp);
 
 #endif //HW3_SEMANTICS_H
