@@ -43,6 +43,12 @@ string GetLLVMType(string type) {
     } else return "i32";
 }
 
+string zeroExtendType(string originalReg, string llvmType) {
+    string destReg = registerPool.GetNewRegister();
+    buffer.emit("%" + destReg + " = zext " + llvmType + " %" + originalReg + " to i32");
+    return destReg;
+}
+
 void printSymTabRow(shared_ptr<SymbolTableRow> row) {
     std::cout << row->name << " | ";
     printVector(row->type);
@@ -346,6 +352,16 @@ Call::Call(TypeNode *id) {
                     // We found the right function, has the same name, it really is a function, and receives no parameters
                     // Saving the type of the function call return value
                     value = row->type.back();
+                    string funcName = id->value;
+                    string returnTypeFromFunc = GetLLVMType(value);
+                    regName = registerPool.GetNewRegister();
+                    if (returnTypeFromFunc == "void") {
+                        // Calling a void function
+                        buffer.emit("call " + returnTypeFromFunc + " @" + funcName + " ()");
+                    } else {
+                        // Calling a non void function and saving the result in the register
+                        buffer.emit("%" + regName + " = call " + returnTypeFromFunc + " @" + funcName + " ()");
+                    }
                     return;
                 } else {
                     row->type.pop_back();
@@ -372,12 +388,18 @@ Call::Call(TypeNode *id, ExpList *list) {
                 } else if (row->isFunc && row->type.size() == list->list.size() + 1) {
                     // We found the right function, has the same name, it really is a function
                     // Now we need to check that the parameter types are correct between what the function accepts, and what was sent
+                    // Need to generate a string with arguments to send to the function
+                    string funcArgs = "(";
                     for (unsigned int i = 0; i < list->list.size(); ++i) {
                         if (list->list[i].type == row->type[i]) {
                             // This parameter is of matching type so it is ok
+                            funcArgs += GetLLVMType(list->list[i].type) + " %" + list->list[i].regName + ",";
                             continue;
                         } else if (list->list[i].type == "BYTE" && row->type[i] == "INT") {
-                            // The function receives int as a paramter, in this instance a byte was sent, but it is ok to cast from BYTE to INT
+                            // The function receives int as a parameter, in this instance a byte was sent, need to cast from BYTE to INT
+                            string dataRegister = registerPool.GetNewRegister();
+                            buffer.emit("%" + dataRegister + " = zext i8 %" + list->list[i].regName + " to i32");
+                            funcArgs += GetLLVMType("INT") + " %" + dataRegister + ",";
                             continue;
                         }
                         // Removing the return type of the function so we have an easy list of requested parameters to print
@@ -386,7 +408,25 @@ Call::Call(TypeNode *id, ExpList *list) {
                         exit(0);
                     }
                     // Saving the type of the function call return value
+                    // removing the last comma (,) and replacing with closing bracket
+                    funcArgs.back() = ')';
                     value = row->type.back();
+                    // Need to actually call the function now
+                    string funcName = id->value;
+                    string returnTypeFromFunc = GetLLVMType(value);
+                    regName = registerPool.GetNewRegister();
+                    if (returnTypeFromFunc == "void") {
+                        // Calling a void function
+                        buffer.emit("call " + returnTypeFromFunc + " @" + funcName + " " + funcArgs);
+                    } else {
+                        // Calling a non void function and saving the result in the register
+                        buffer.emit("%" + regName + " = call " + returnTypeFromFunc + " @" + funcName + " " + funcArgs);
+                    }
+                    // Creating a code section to return to after the function call has ended.
+                    // TODO: is this label necessary?
+                    int loc = buffer.emit("br label @");
+                    instruction = buffer.genLabel();
+                    buffer.bpatch(buffer.makelist({loc, FIRST}), instruction);
                     return;
                 } else {
                     // The number of parameters we received does not match the number the function takes as arguments
@@ -733,10 +773,10 @@ string loadVariableFromSymTab(int offset, string type) {
     string ptrRegister = registerPool.GetNewRegister();
     if (offset >= 0) {
         // this variable is declared inside the function, and not part of the function parameters
-        buffer.emit("%" + ptrRegister + " = getelementptr [ 50 x i32], [ 50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+        buffer.emit("%" + ptrRegister + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     } else if (offset < 0 && currentRunningFunctionArgumentsNumber > 0) {
         // this variable is one of the function parameters
-        buffer.emit("%" + ptrRegister + " = getelementptr [ " + to_string(currentRunningFunctionArgumentsNumber) + " x i32], [ " +
+        buffer.emit("%" + ptrRegister + " = getelementptr [" + to_string(currentRunningFunctionArgumentsNumber) + " x i32], [" +
                     to_string(currentRunningFunctionArgumentsNumber) + " x i32]* %args, i32 0, i32 " +
                     to_string(currentRunningFunctionArgumentsNumber + offset));
     } else {
@@ -774,6 +814,8 @@ Statement::Statement(TypeNode *type) {
     }
 //    int l = loopCounter;
 //    int s = switchCounter;
+    breakList = vector<pair<int, BranchLabelIndex>>();
+    continueList = vector<pair<int, BranchLabelIndex>>();
     if (loopCounter == 0 && switchCounter == 0) {
         // We are not inside any loop, so a break or continue is illegal in this context
         if (type->value == "break") {
@@ -789,6 +831,14 @@ Statement::Statement(TypeNode *type) {
         }
     } else if (loopCounter != 0) {
         // We are inside a loop so break and continue are both legal
+        // Creating a list to patch later with the correct place to jump to, the patch would make the jump go back to the start of the loop
+        // or exit from it
+        int loc = buffer.emit("br label @");
+        if (type->value == "break") {
+            breakList = buffer.makelist({loc, FIRST});
+        } else {
+            continueList = buffer.makelist({loc, FIRST});
+        }
     } else if (type->value == "continue" && switchCounter != 0) {
         output::errorUnexpectedContinue(yylineno);
         exit(0);
@@ -796,7 +846,7 @@ Statement::Statement(TypeNode *type) {
     dataTag = "break or continue";
 }
 
-Statement::Statement(string type, Exp *exp) {
+Statement::Statement(string type, Exp *exp, Statement *innerStatement) {
     if (DEBUG) {
         printMessage("exp type ex");
         printMessage(type);
@@ -807,12 +857,21 @@ Statement::Statement(string type, Exp *exp) {
         output::errorMismatch(yylineno);
         exit(0);
     }
+    if (innerStatement != nullptr) {
+        breakList = innerStatement->breakList;
+        continueList = innerStatement->continueList;
+    } else {
+        breakList = vector<pair<int, BranchLabelIndex>>();
+        continueList = vector<pair<int, BranchLabelIndex>>();
+    }
     dataTag = "if if else while";
 }
 
 // For Return SC -> this is for a function with a void return type
 Statement::Statement(const string &funcReturnType) {
     if (DEBUG) printMessage("statement func ret type");
+    breakList = vector<pair<int, BranchLabelIndex>>();
+    continueList = vector<pair<int, BranchLabelIndex>>();
     // Need to check if the current running function is of void type
     for (int i = symTabStack.size() - 1; i >= 0; i--) {
         // Need to search in the current symtab with no particular order for the current function
@@ -821,6 +880,7 @@ Statement::Statement(const string &funcReturnType) {
                 // We found the current running function
                 if (row->type.back() == funcReturnType) {
                     dataTag = "void return value";
+                    buffer.emit("ret void");
                 } else {
                     output::errorMismatch(yylineno);
                     exit(0);
@@ -853,9 +913,14 @@ Statement::Statement(Exp *exp) {
                 // We found the current running function
                 if (row->type.back() == exp->type) {
                     dataTag = exp->value;
+                    string realLLVMType = GetLLVMType(exp->type);
+                    buffer.emit("ret " + realLLVMType + " %" + exp->regName);
                 } else if (row->type.back() == "INT" && exp->type == "BYTE") {
-                    // Allowing automatic cast from byte to int
                     dataTag = row->type.back();
+                    // Cast the Byte expression into an int for a proper return type
+                    string dataRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + dataRegister + " = zext i8 %" + exp->regName + " to i32");
+                    buffer.emit("ret i32 %" + dataRegister);
                 } else {
                     output::errorMismatch(yylineno);
                     exit(0);
@@ -865,8 +930,37 @@ Statement::Statement(Exp *exp) {
     }
 }
 
+string saveNewDataOnStackVariable(string sourceReg, string sourceType, int offset) {
+    string destReg = registerPool.GetNewRegister();
+    string dataRegister = sourceReg;
+    string regType = GetLLVMType(sourceType);
+    if (regType != "i32") {
+        dataRegister = zeroExtendType(sourceType, regType);
+    }
+    buffer.emit("%" + destReg + " = add i32 0,%" + dataRegister);
+    string regPtr = registerPool.GetNewRegister();
+    if (offset >= 0) {
+        // This is a stack assigned variable
+        buffer.emit("%" + regPtr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    } else if (offset < 0 && currentRunningFunctionArgumentsNumber > 0) {
+        // This is a function parameter
+        buffer.emit("%" + regPtr + " = getelementptr [" + to_string(currentRunningFunctionArgumentsNumber) +
+                    " x i32], [" + to_string(currentRunningFunctionArgumentsNumber) + " x i32]* %args, i32 0, i32 " +
+                    to_string(currentRunningFunctionArgumentsNumber + offset));
+    } else {
+        // The variable that was requested is in an illegal place
+        if (DEBUG) {
+            printMessage("Issue getting variable from llvm stack");
+        }
+    }
+    buffer.emit("store i32 %" + destReg + ", i32* %" + regPtr);
+    return destReg;
+}
+
 Statement::Statement(Call *call) {
     dataTag = "function call";
+    breakList = vector<pair<int, BranchLabelIndex>>();
+    continueList = vector<pair<int, BranchLabelIndex>>();
 }
 
 Statement::Statement(TypeNode *id, Exp *exp) {
@@ -875,6 +969,8 @@ Statement::Statement(TypeNode *id, Exp *exp) {
         exit(0);
     }
 
+    breakList = vector<pair<int, BranchLabelIndex>>();
+    continueList = vector<pair<int, BranchLabelIndex>>();
     // Searching for the variable in the symtab
     for (int i = symTabStack.size() - 1; i >= 0; i--) {
         // Need to search in the current symtab with no particular order for the current function
@@ -883,6 +979,8 @@ Statement::Statement(TypeNode *id, Exp *exp) {
                 // We found the desired variable
                 if ((row->type.back() == exp->type) || (row->type.back() == "INT" && exp->type == "BYTE")) {
                     dataTag = row->type.back();
+                    instruction = exp->instruction;
+                    regName = saveNewDataOnStackVariable(exp->regName, exp->type, row->offset);
                 }
             }
         }
@@ -897,12 +995,35 @@ Statement::Statement(Type *t, TypeNode *id, Exp *exp) {
         exit(0);
     }
     if ((t->value == exp->type) || (t->value == "INT" && exp->type == "BYTE")) {
+        breakList = vector<pair<int, BranchLabelIndex>>();
+        continueList = vector<pair<int, BranchLabelIndex>>();
         dataTag = t->value;
         // Creating a new variable on the stack will cause the next one to have a higher offset
         int offset = offsetStack.back()++;
         vector<string> varType = {t->value};
         shared_ptr<SymbolTableRow> nVar = std::make_shared<SymbolTableRow>(id->value, varType, offset, false);
         symTabStack.back()->rows.push_back(nVar);
+
+        regName = registerPool.GetNewRegister();
+        string regType = GetLLVMType(t->value);
+        string dataRegister = regName;
+        if (t->value == "INT" && exp->type == "BYTE") {
+            // Need to zero extend the value to the assigned type
+            dataRegister = registerPool.GetNewRegister();
+            buffer.emit("%" + dataRegister + " = zext i8 %" + exp->regName + " to i32");
+        }
+        buffer.emit("%" + regName + " = add " + regType + " 0,%" + dataRegister);
+        string regPtr = registerPool.GetNewRegister();
+        buffer.emit("%" + regPtr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+        dataRegister = regName;
+        if (regType != "i32") {
+            // Need to extend the variable so it fits inside our stack
+            dataRegister = registerPool.GetNewRegister();
+            buffer.emit("%" + dataRegister + " = zext " + regType + " %" + regName + " to i32");
+        }
+
+        // Storing the new declared variable in the stack of the current scope
+        buffer.emit("store i32 %" + dataRegister + ", i32* %" + regPtr);
     } else {
         output::errorMismatch(yylineno);
         exit(0);
@@ -915,12 +1036,30 @@ Statement::Statement(Type *t, TypeNode *id) {
         output::errorDef(yylineno, id->value);
         exit(0);
     }
+    breakList = vector<pair<int, BranchLabelIndex>>();
+    continueList = vector<pair<int, BranchLabelIndex>>();
     // Creating a new variable on the stack will cause the next one to have a higher offset
     int offset = offsetStack.back()++;
     vector<string> varType = {t->value};
     shared_ptr<SymbolTableRow> nVar = std::make_shared<SymbolTableRow>(id->value, varType, offset, false);
     symTabStack.back()->rows.push_back(nVar);
     dataTag = t->value;
+    regName = registerPool.GetNewRegister();
+    string regType = GetLLVMType(t->value);
+    // This is a declaration of a new variable with no value assignment, so we initialize it to a default value of 0
+    buffer.emit("%" + regName + " = add " + regType + " 0,0");
+    string regPtr = registerPool.GetNewRegister();
+    // Getting a new pointer to store the declared variable inside the current scope
+    buffer.emit("%" + regPtr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    string dataRegister = regName;
+    if (regType != "i32") {
+        // Need to extend the variable so it fits inside our stack
+        dataRegister = registerPool.GetNewRegister();
+        buffer.emit("%" + dataRegister + " = zext " + regType + " %" + regName + " to i32");
+    }
+    // Storing the new declared variable in the stack of the current scope
+    buffer.emit("store i32 %" + dataRegister + ", i32* %" + regPtr);
+
     if (DEBUG) printSymTableStack();
 }
 
@@ -929,6 +1068,8 @@ Statement::Statement(Statements *states) {
         printMessage("In statement from statements");
         printMessage(states->value);
     }
+    breakList = states->breakList;
+    continueList = states->continueList;
     dataTag = "statement block";
 }
 
@@ -963,11 +1104,13 @@ Statement::Statement(Exp *exp, CaseList *cList) {
 }
 
 Statements::Statements(Statement *state) {
-
+    breakList = state->breakList;
+    continueList = state->continueList;
 }
 
 Statements::Statements(Statements *states, Statement *state) {
-
+    breakList = buffer.merge(states->breakList, state->breakList);
+    continueList = buffer.merge(states->continueList, state->continueList);
 }
 
 CaseDecl::CaseDecl(Exp *num, Statements *states) {
@@ -1019,7 +1162,6 @@ Funcs::Funcs() {
 }
 
 P::P(Exp *leftHandInstr) {
-    // TODO: check that two @ signs are the correct syntax
     loc = buffer.emit("br i1 %" + leftHandInstr->regName + ", label @, label @");
     instruction = buffer.genLabel();
 }
@@ -1033,7 +1175,7 @@ N::N() {
     instruction = buffer.genLabel();
 }
 
-TypeNode *doCompare(Exp *leftHandInstr) {
+TypeNode *parseBooleanCondition(Exp *leftHandInstr) {
     TypeNode *node = new P(leftHandInstr);
     return node;
 }
@@ -1057,4 +1199,10 @@ void backpatchIfElse(M *label1, N *label2, Exp *exp) {
     buffer.bpatch(exp->falseList, label2->instruction);
     buffer.bpatch(buffer.makelist({label2->loc, FIRST}), end);
     buffer.bpatch(buffer.makelist({loc, FIRST}), end);
+}
+
+Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement) {
+    ifStatement->breakList = buffer.merge(ifStatement->breakList, elseStatement->continueList);
+    ifStatement->continueList = buffer.merge(ifStatement->continueList, elseStatement->continueList);
+    return ifStatement;
 }

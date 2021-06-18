@@ -119,6 +119,7 @@ public:
     explicit Exp(Call *call);
 
     // for exp in switch
+    // TODO: complete this
     Exp(Exp *e1, string tag);
 
     // for NOT Exp
@@ -134,8 +135,7 @@ public:
     Exp(Exp *ex);
 };
 
-// TODO: rename this
-TypeNode *doCompare(Exp *leftHandInstr);
+TypeNode *parseBooleanCondition(Exp *leftHandInstr);
 
 class P : public TypeNode {
 public:
@@ -166,7 +166,7 @@ public:
     explicit RetType(TypeNode *type);
 };
 
-void exitProgramFuncs(RetType* ret);
+void exitProgramFuncs(RetType *ret);
 
 class Statements;
 
@@ -208,6 +208,7 @@ public:
     explicit Statement(TypeNode *type);
 
     // For Switch LParen Exp RParen Lbrace CaseList Rbrace
+    // TODO: complete this
     Statement(Exp *exp, CaseList *cList);
 };
 
@@ -302,5 +303,7 @@ void insertFunctionParameters(Formals *formals);
 void backpatchIf(M *label, Exp *exp);
 
 void backpatchIfElse(M *firstLabel, N *secondlabel, Exp *exp);
+
+Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement);
 
 #endif //HW3_SEMANTICS_H

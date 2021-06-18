@@ -55,7 +55,7 @@ Program : {$$ = new Program();} Funcs {exitProgramRuntime();};
 Funcs : %prec SECOND_PRIOR{$$ = new Funcs();} |
         FuncDecl Funcs %prec FIRST_PRIOR{$$ = new Funcs();};
 
-FuncDecl: RetType ID LPAREN Formals RPAREN {$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2,dynamic_cast<Formals*>($4));} LBRACE OS {insertFunctionParameters(dynamic_cast<Formals*>($4));} Statements CS {exitProgramFuncs();} RBRACE;
+FuncDecl: RetType ID LPAREN Formals RPAREN {$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2,dynamic_cast<Formals*>($4));} LBRACE OS {insertFunctionParameters(dynamic_cast<Formals*>($4));} Statements CS {exitProgramFuncs(dynamic_cast<RetType*>($1));} RBRACE {$$ = $6;};
 RetType: Type{$$ = new RetType(dynamic_cast<Type*>($1));} | VOID{$$ = new RetType($1);};
 Formals : {$$ = new Formals();} | FormalsList{$$ = new Formals(dynamic_cast<FormalsList*>($1));};
 FormalsList : FormalDecl{$$ = new FormalsList(dynamic_cast<FormalDecl*>($1));} |
@@ -70,9 +70,9 @@ Statement : LBRACE OS Statements CS RBRACE {$$ = new Statement(dynamic_cast<Stat
             Call SC{$$ = new Statement(dynamic_cast<Call*>($1));} |
             RETURN SC{$$ = new Statement("VOID");} |
             RETURN Exp SC{$$ = new Statement(dynamic_cast<Exp*>($2));} |
-            IF LPAREN Exp RPAREN OS Statement %prec IF {$$ = new Statement("if", dynamic_cast<Exp*>($3));closeCurrentScope();} |
-            IF LPAREN Exp RPAREN OS Statement ELSE {$$ = new Statement("if else", dynamic_cast<Exp*>($3));closeCurrentScope();} OS Statement CS |
-            WHILE LPAREN Exp RPAREN {$$ = new Statement("while", dynamic_cast<Exp*>($3));enterLoop();} OS Statement CS{exitLoop();} |
+            IF LPAREN Exp RPAREN OS M Statement %prec IF {$$ = new Statement("if", dynamic_cast<Exp*>($3), dynamic_cast<Statement*>($7));closeCurrentScope();backPatchIf(dynamic_cast<M*>($6), dynamic_cast<Exp*>($3));} |
+            IF LPAREN Exp RPAREN OS M Statement ELSE {$$ = new Statement("if else", dynamic_cast<Exp*>($3), dynamic_cast<Statement*>($7));closeCurrentScope();} OS N Statement CS {backpatchIfElse(dynamic_cast<M*>($6),dynamic_cast<N*>($11), dynamic_cast<Exp*>($3));$$ = mergeIfElseLists(dynamic_cast<Statement*>($9),dynamic_cast<Statement*>($12));} |
+            WHILE LPAREN N Exp RPAREN {$$ = parseBooleanCondition(dynamic_cast<Exp*>($4));} {$$ = new Statement("while", dynamic_cast<Exp*>($3));enterLoop();} OS Statement CS{exitLoop(dynamic_cast<N*>($3),dynamic_cast<P*>($6),dynamic_cast<Statement*>($9), $$ = $7;} |
             BREAK SC{$$ = new Statement($1);} |
             CONTINUE SC{$$ = new Statement($1);} |
             SWITCH {enterSwitch();} LPAREN Exp {new Exp(dynamic_cast<Exp*>($4), "switch");} RPAREN LBRACE OS CaseList {$$ = new Statement(dynamic_cast<Exp*>($4),dynamic_cast<CaseList*>($9));} CS {exitSwitch();} RBRACE;
@@ -94,16 +94,18 @@ Exp : LPAREN Exp RPAREN{$$ = new Exp(dynamic_cast<Exp*>($2));} |
       TRUE{$$ = new Exp($1, "BOOL");} |
       FALSE{$$ = new Exp($1, "BOOL");} |
       NOT Exp{$$ = new Exp($1, dynamic_cast<Exp*>($2));} |
-      Exp AND Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "AND");} |
-      Exp OR Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "OR");} |
+      Exp AND {$$ = parseBooleanCondition(dynamic_cast<Exp*>($1));} Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($4), "AND", dynamic_cast<P*>($3));} |
+      Exp OR {$$ = parseBooleanCondition(dynamic_cast<Exp*>($1));} Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "OR", dynamic_cast<P*>($3));} |
       Exp EQ_NEQ_RELOP Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "EQ_NEQ_RELOP");} |
       Exp REL_RELOP Exp{$$ = new Exp(dynamic_cast<Exp*>($1),$2,dynamic_cast<Exp*>($3), "REL_RELOP");};
 CaseList : CaseDecl CaseList{$$ = new CaseList(dynamic_cast<CaseDecl*>($1),dynamic_cast<CaseList*>($2));} |
            CaseDecl{$$ = new CaseList(dynamic_cast<CaseDecl*>($1));} |
            DEFAULT COLON Statements{$$ = new CaseList(dynamic_cast<Statements*>($3));};
 CaseDecl : CASE NUM COLON Statements{$$ = new CaseDecl(new Exp($2, "NUM"), dynamic_cast<Statements*>($4));};
-OS : {openNewScope();}
-CS : {closeCurrentScope();}
+OS : {openNewScope();};
+CS : {closeCurrentScope();};
+M : {$$ = new M();};
+N : {$$ = new N();};
 
 %%
 
