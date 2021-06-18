@@ -134,6 +134,8 @@ void exitProgramRuntime() {
         exit(0);
     }
     closeCurrentScope();
+    buffer.printGlobalBuffer();
+    buffer.printCodeBuffer();
     if (DEBUG) printMessage("I am exiting program runtime");
 }
 
@@ -146,18 +148,18 @@ void openNewScope() {
 }
 
 void closeCurrentScope() {
-    output::endScope();
+    //output::endScope();
     shared_ptr<SymbolTable> currentScope = symTabStack.back();
     for (auto &row : currentScope->rows) {
         if (!row->isFunc) {
             // Print a normal variable
-            output::printID(row->name, row->offset, row->type[0]);
+            //output::printID(row->name, row->offset, row->type[0]);
         } else {
             string funcReturnType = row->type.back();
             // Taking out the return type from the vector for easy printing
             row->type.pop_back();
-            output::printID(row->name, row->offset,
-                            output::makeFunctionType(funcReturnType, row->type));
+//            output::printID(row->name, row->offset,
+//                            output::makeFunctionType(funcReturnType, row->type));
         }
     }
 
@@ -541,12 +543,20 @@ Exp::Exp(TypeNode *terminal, string taggedTypeFromParser) : TypeNode(terminal->v
         }
     }
     // If we reached here, the type is STRING
-    regName = registerPool.GetNewRegister();
-    // replacing the default string null terminator with an explicit null terminator for LLVM
-    terminal->value[terminal->value.size() - 1] = '\00';
-    int size = terminal->value.size();
-    buffer.emitGlobal("@" + regName + "= constant [" + to_string(size) + " x i8] c\"" + terminal->value + "\"");
-    buffer.emit("%" + regName + "= getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + regName + ", i8 0, i8 0");
+    if (type == "STRING") {
+        regName = registerPool.GetNewRegister();
+//    buffer.emitGlobal(terminal->value);
+        // replacing the default string null terminator with an explicit null terminator for LLVM
+//    terminal->value[terminal->value.size()] = '\0';
+//    terminal->value.push_back('\00');
+        int size = terminal->value.size();
+        string sub = terminal->value.substr(1, terminal->value.length() - 2);
+        string num_size = to_string(terminal->value.size() - 1);
+//    buffer.emitGlobal("@" + regName + "= constant [" + to_string(size) + " x i8] c\"" + terminal->value + "\\00\"");
+        buffer.emitGlobal(
+                "@" + regName + "= constant [" + num_size + " x i8] c\"" + terminal->value.substr(1, terminal->value.length() - 2) + "\\00\"");
+        buffer.emit("%" + regName + "= getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + regName + ", i8 0, i8 0");
+    }
     if (DEBUG) {
         printMessage("now tagged as:");
         printMessage(type);
@@ -1180,7 +1190,7 @@ TypeNode *parseBooleanCondition(Exp *leftHandInstr) {
     return node;
 }
 
-void backPatchIf(M *label, Exp *exp) {
+void backpatchIf(M *label, Exp *exp) {
     int loc = buffer.emit("br label @");
     string end = buffer.genLabel();
     // Patching the jump to the if instruction in case the IF condition is true
