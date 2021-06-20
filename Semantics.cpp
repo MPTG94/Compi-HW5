@@ -456,7 +456,6 @@ Call::Call(TypeNode *id, ExpList *list) {
                         buffer.emit("%" + regName + " = call " + returnTypeFromFunc + " @" + funcName + " " + funcArgs);
                     }
                     // Creating a code section to return to after the function call has ended.
-                    // TODO: is this label necessary?
                     int loc = buffer.emit("br label @");
                     instruction = buffer.genLabel();
                     buffer.bpatch(buffer.makelist({loc, FIRST}), instruction);
@@ -807,11 +806,12 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
 }
 
 // TODO: update this so it prints out correct LLVM code
-Exp::Exp(Exp *e1, string tag) {
+Exp::Exp(Exp *e1, string tag, N *label) {
     if (tag == "switch" && (e1->type != "INT" && e1->type != "BYTE")) {
         output::errorMismatch(yylineno);
         exit(0);
     }
+    buffer.bpatch(buffer.makelist(pair<int, BranchLabelIndex>(label->loc, FIRST)), label->instruction);
     value = e1->value;
     type = e1->type;
     valueAsBooleanValue = e1->valueAsBooleanValue;

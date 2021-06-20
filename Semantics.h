@@ -120,7 +120,7 @@ public:
 
     // for exp in switch
     // TODO: complete this
-    Exp(Exp *e1, string tag);
+    Exp(Exp *e1, string tag, N* label = nullptr);
 
     // for NOT Exp
     Exp(TypeNode *notNode, Exp *exp);
