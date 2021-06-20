@@ -88,9 +88,9 @@ fi
 i="1"
 while [ $i -le $numtests ]
 	do
-		./hw5 < t$i.in 2>&1 > t$i.ll
-		lli t$i.ll > t$i.res
-		diff t$i.res t$i.out &> /dev/null
+		./hw5 < t0$i.in 2>&1 > t0$i.ll
+		lli t0$i.ll > t0$i.res
+		diff t0$i.res t0$i.out &> /dev/null
 		if [[ $? != 0 ]] 
 			then
 				echo "Failed test #"$i"!"

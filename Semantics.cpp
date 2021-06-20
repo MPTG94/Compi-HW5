@@ -39,7 +39,7 @@ string GetLLVMType(string type) {
     } else if (type == "BYTE") {
         return "i8";
     } else if (type == "STRING") {
-        return "i8";
+        return "i8*";
     } else return "i32";
 }
 
@@ -339,6 +339,37 @@ FuncDecl::FuncDecl(RetType *rType, TypeNode *id, Formals *funcParams) {
     shared_ptr<SymbolTableRow> nFunc = std::make_shared<SymbolTableRow>(value, type, 0, true);
     symTabStack.back()->rows.push_back(nFunc);
     currentRunningFunctionScopeId = value;
+    currentRunningFunctionArgumentsNumber = funcParams->formals.size();
+    string funcArgumentString = "(";
+    for (int i = 0; i < funcParams->formals.size(); ++i) {
+        // The function has parameters which need to be printed in the LLVM function declaration
+        funcArgumentString += GetLLVMType(funcParams->formals[i]->type);
+        if (i != funcParams->formals.size() - 1) {
+            funcArgumentString += ',';
+        }
+    }
+    funcArgumentString.push_back(')');
+    string funcReturnType = GetLLVMType(rType->value);
+    buffer.emit("define " + funcReturnType + " @" + value + funcArgumentString + " {");
+
+    // Declaring function arguments and stack, max number of variables in a single function is 50
+    buffer.emit("%stack = alloca [50 x i32]");
+    buffer.emit("%args = alloca [" + to_string(funcParams->formals.size()) + " x i32]");
+
+    for (int i = 0; i < funcParams->formals.size(); ++i) {
+        // creating registers for all func parameters
+        string ptrRegister = registerPool.GetNewRegister();
+        buffer.emit("%" + ptrRegister + " = getelementptr [" + to_string(funcParams->formals.size()) + " x i32], [" +
+                    to_string(funcParams->formals.size()) + " x i32]* %args, i32 0, i32 " + to_string(currentRunningFunctionArgumentsNumber - i - 1));
+        string dataRegister = to_string(i);
+        string funcArgumentType = GetLLVMType(funcParams->formals[i]->type);
+        if (funcArgumentType != "i32") {
+            // need to zero extend
+            dataRegister = registerPool.GetNewRegister();
+            buffer.emit("%" + dataRegister + " = zext " + funcArgumentType + " %" + to_string(i) + " to i32");
+        }
+        buffer.emit("store i32 %" + dataRegister + ", i32* %" + ptrRegister);
+    }
     if (DEBUG) printMessage("exiting func decl");
 }
 
@@ -554,8 +585,9 @@ Exp::Exp(TypeNode *terminal, string taggedTypeFromParser) : TypeNode(terminal->v
         string num_size = to_string(terminal->value.size() - 1);
 //    buffer.emitGlobal("@" + regName + "= constant [" + to_string(size) + " x i8] c\"" + terminal->value + "\\00\"");
         buffer.emitGlobal(
-                "@" + regName + "= constant [" + num_size + " x i8] c\"" + terminal->value.substr(1, terminal->value.length() - 2) + "\\00\"");
-        buffer.emit("%" + regName + "= getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + regName + ", i8 0, i8 0");
+                "@" + regName + " = constant [" + num_size + " x i8] c\"" + terminal->value.substr(1, terminal->value.length() - 2) + "\\00\"");
+//        buffer.emit("%" + regName + " = getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + regName + ", i8 0, i8 0");
+        buffer.emit("%" + regName + " = getelementptr [" + num_size + " x i8], [" + num_size + " x i8]* @" + regName + ", i8 0, i8 0");
     }
     if (DEBUG) {
         printMessage("now tagged as:");
@@ -719,7 +751,7 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
             } else {
                 instruction = leftHandInstr->instruction;
             }
-            if (op->value == "AND") {
+            if (op->value == "and") {
                 int firstCheckIsFalseBranchJump = buffer.emit("br label @");
                 string leftIsFalseLabel = buffer.genLabel();
                 int secondCheckIsFalseLabel = buffer.emit("br label @");
@@ -739,7 +771,7 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 } else {
                     valueAsBooleanValue = false;
                 }
-            } else if (op->value == "OR") {
+            } else if (op->value == "or") {
                 int firstCheckIsTrueBranchJump = buffer.emit("br label @");
                 string leftIsTrueLabel = buffer.genLabel();
                 int secondCheckIsTrueLabel = buffer.emit("br label @");
@@ -768,6 +800,9 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
         output::errorMismatch(yylineno);
         exit(0);
     }
+    if (end != "") {
+        instruction = end;
+    }
 }
 
 // TODO: update this so it prints out correct LLVM code
@@ -776,6 +811,14 @@ Exp::Exp(Exp *e1, string tag) {
         output::errorMismatch(yylineno);
         exit(0);
     }
+    value = e1->value;
+    type = e1->type;
+    valueAsBooleanValue = e1->valueAsBooleanValue;
+    regName = e1->regName;
+    instruction = e1->instruction;
+    int loc = buffer.emit("br i1 %" + regName + ", label @, label @");
+    trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
+    falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
 }
 
 string loadVariableFromSymTab(int offset, string type) {
