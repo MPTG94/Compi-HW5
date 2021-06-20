@@ -479,6 +479,7 @@ Call::Call(TypeNode *id, ExpList *list) {
 Exp::Exp(Call *call) {
     // Need to just take the return value of the function and use it as the return type of the expression
     if (DEBUG) printMessage("in exp call");
+    regName = call->regName;
     value = call->value;
     type = call->value;
     instruction = call->instruction;
@@ -681,7 +682,7 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
             string llvmSize = "i8";
             if (e1->type == "INT" || e2->type == "INT") {
                 type = "INT";
-                string llvmSize = "i32";
+                llvmSize = "i32";
             }
             regName = registerPool.GetNewRegister();
             string operation;
@@ -988,7 +989,7 @@ string saveNewDataOnStackVariable(string sourceReg, string sourceType, int offse
     string dataRegister = sourceReg;
     string regType = GetLLVMType(sourceType);
     if (regType != "i32") {
-        dataRegister = zeroExtendType(sourceType, regType);
+        dataRegister = zeroExtendType(sourceReg, regType);
     }
     buffer.emit("%" + destReg + " = add i32 0,%" + dataRegister);
     string regPtr = registerPool.GetNewRegister();
@@ -1064,6 +1065,8 @@ Statement::Statement(Type *t, TypeNode *id, Exp *exp) {
             // Need to zero extend the value to the assigned type
             dataRegister = registerPool.GetNewRegister();
             buffer.emit("%" + dataRegister + " = zext i8 %" + exp->regName + " to i32");
+        } else if (t->value == "BYTE" && exp->type == "BYTE") {
+            dataRegister = exp->regName;
         }
         buffer.emit("%" + regName + " = add " + regType + " 0,%" + dataRegister);
         string regPtr = registerPool.GetNewRegister();
