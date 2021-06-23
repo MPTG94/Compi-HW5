@@ -714,7 +714,7 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 string zeroDivisionExceptionReg = registerPool.GetNewRegister();
                 buffer.emit("%" + zeroDivisionExceptionReg + " = getelementptr [22 x i8], [22 x i8]* @ThrowZeroException, i32 0, i32 0");
                 buffer.emit("call void @print(i8* %" + zeroDivisionExceptionReg + ")");
-                buffer.emit("call void @exit(i32 0");
+                buffer.emit("call void @exit(i32 0)");
                 int normalDivisionCaseLabelLoc = buffer.emit("br label @");
                 string normalDivisionBranchLabel = buffer.genLabel();
                 // Backpatching the check, so that it jumps to the handler for zero division
@@ -818,7 +818,7 @@ Exp::Exp(Exp *e1, string tag, N *label) {
     if (label) {
         buffer.bpatch(buffer.makelist(pair<int, BranchLabelIndex>(label->loc, FIRST)), label->instruction);
     }
-    buffer.emit("I am using the special constructor");
+    //buffer.emit("I am using the special constructor");
     value = e1->value;
     type = e1->type;
     valueAsBooleanValue = e1->valueAsBooleanValue;
@@ -1076,7 +1076,7 @@ Statement::Statement(Type *t, TypeNode *id, Exp *exp) {
             // Need to zero extend the value to the assigned type
             dataRegister = registerPool.GetNewRegister();
             buffer.emit("%" + dataRegister + " = zext i8 %" + exp->regName + " to i32");
-        } else if ((t->value == "BYTE" && exp->type == "BYTE") || (t->value == "INT" && exp->type == "INT")) {
+        } else {
             dataRegister = exp->regName;
         }
         buffer.emit("%" + regName + " = add " + regType + " 0,%" + dataRegister);
