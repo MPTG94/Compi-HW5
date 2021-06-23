@@ -1,0 +1,20 @@
+void main() {
+    if (100 == 100b)
+        print("equal!");
+    else
+        print("shouldn't happen");
+    
+    if (5 < 6b)
+        print("smaller!");
+    else
+        print("shouldn't happen");
+    
+    if (4b <= 5 or (8 / 0) < 10)
+        print("short circuit works");
+    
+    if (5 > 100b and (6b / 0b) != 1)
+        print("wrong but at least didn't crash");
+    
+    if (not (1 != 1b) and (8 >= 2b))
+        print("good");
+}

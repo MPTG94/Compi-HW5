@@ -1,0 +1,25 @@
+void testDefualt4(int x) {
+    switch (x) {
+            case 1: printi(1); break;
+            case 2: printi(2);
+            case 3: printi(3); break;
+            case 4: printi(4);
+            default: printi(0);
+    }
+}
+
+void main() {
+	testDefualt4(1);
+	print("*");
+	testDefualt4(2);
+	print("*");
+	testDefualt4(3);
+	print("*");
+	testDefualt4(4);
+	print("*");
+	testDefualt4(5);
+	print("*");
+	
+
+	
+}

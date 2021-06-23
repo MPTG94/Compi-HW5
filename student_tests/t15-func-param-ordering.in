@@ -1,0 +1,28 @@
+//order of params
+int f1(int x){
+    print("f1!");
+    return x;
+}
+
+byte f2(byte x) {
+    print("f2!");
+    return x;
+}
+
+bool f3(bool c) {
+    print("f3!");
+    return c;
+}
+
+void callMe(int a, int c, byte d, bool e, bool f, byte g, int h, bool i) {
+    print("call me maybe");
+    printi(a);
+    printi(c);
+    printi(d);
+    printi(g);
+    printi(h);
+}
+
+void main() {
+    callMe(f1(2),f2(4b),f2(5b),f3(true),f3(false),f2(3b),f1(22),f3(false));
+}

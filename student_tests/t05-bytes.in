@@ -1,0 +1,12 @@
+//negatives and overflow
+void main() {
+    printi(0-6);
+    printi(0 b-2);
+    printi(0 b-5 b);
+    printi(2147483647 + 2);
+    printi(214748365 * 10 b);
+    printi(255b + 2 b);
+    printi(128 b * 2 b);
+    printi(1000/10b);
+    printi(200b/5b);
+}

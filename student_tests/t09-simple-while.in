@@ -1,0 +1,12 @@
+//while test
+void main() {
+    while(false) {
+        print("never gonna happen hopefully");
+    }
+    
+    int i = 0;
+    while(i < 10) {
+        printi(i);
+        i = i + 1;
+    }
+}

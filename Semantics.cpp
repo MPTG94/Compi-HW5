@@ -837,9 +837,10 @@ Exp::Exp(Exp *e1, string tag, N *label) {
         trueList = vector<pair<int, BranchLabelIndex>>();
         falseList = vector<pair<int, BranchLabelIndex>>();
     }
-    // NEED TO PRINT HERE CODE THAT WILL JUMP AND CHECK THE DIFFERENT CASES
-    string switchCheckerLabelName = "label_switch_" + to_string(switchId);
-    buffer.emit("br label %" + switchCheckerLabelName);
+    if (tag == "switch") {
+        string switchCheckerLabelName = "label_switch_" + to_string(switchId);
+        buffer.emit("br label %" + switchCheckerLabelName);
+    }
 }
 
 string loadVariableFromSymTab(int offset, string type) {

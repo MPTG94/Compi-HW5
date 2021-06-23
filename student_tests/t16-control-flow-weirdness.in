@@ -1,0 +1,54 @@
+//non-void return statements
+int foo(bool c, int x, byte y) {
+    if (not c) {
+        print("already? :(");
+        return 15;
+    }
+    print("ok");
+    while (x < 10) {
+        x = x + 1;
+        if (c and x == 7) {
+            printi(x);
+            print("alright");
+            return 17;
+        }
+    }
+    while (y > 12b) {
+        y = y - 1b;
+        printi(y);
+        print("back!");
+        return 18;
+    }
+    print("here!");
+    return 322;
+}
+
+bool opposite(bool a) {
+    while (true) {
+        while (true) {
+            while(true) {
+                while(true) {
+                    while (true) 
+                        return not a;
+                        break;
+                }
+            }
+        }
+    }
+    return not a;
+}
+
+byte multiply(byte a, byte c) {
+    return a*c;
+}
+
+void main() {
+    printi(foo(false,5,15b));
+    printi(foo(true,5,21b));
+    printi(foo(true,11,4b));
+    printi(foo(true,10,13b));
+    if (opposite(false)) {
+        print("great");
+    }
+    printi(multiply(16b,16b));
+}

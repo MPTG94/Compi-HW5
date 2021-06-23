@@ -1,0 +1,44 @@
+void testDefualt2(int x) {
+    switch (x) {
+            case 2: print("ok2"); break;
+            case 3: print("ok3"); break;
+            case 1: print("ok1"); break;
+            default: printi(100); break;
+    }
+}
+
+void testDefualt3(int x) {
+    switch (x) {
+            case 100: print("ok100"); break;
+            case 1: print("ok1"); break;
+            default: printi(100); break;
+    }
+}
+
+void main() {
+	testDefualt2(2);
+    testDefualt2(1);
+    testDefualt2(3);
+    testDefualt2(434);
+    testDefualt2(123);
+    testDefualt2(3);
+    testDefualt2(1111);
+	
+	int y = 100;
+	
+	switch(y) {
+		case 100: print("ok"); break;
+		default: print("not ok"); break;
+	}
+	
+	switch(y) {
+		default: print("ok"); break;
+	}
+	
+	testDefualt3(3);
+    testDefualt3(1111);
+    testDefualt3(1);
+    testDefualt3(99);
+    testDefualt3(100);
+	
+}

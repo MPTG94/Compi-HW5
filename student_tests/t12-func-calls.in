@@ -1,0 +1,23 @@
+//function calls
+void foo() {
+    print("foo!");
+}
+
+void bar(int i) {
+    printi(i);
+}
+
+void moo(bool cond) {
+    if (cond)
+        foo();
+    else
+        bar(110);
+}
+
+void main() {
+    foo();
+    bar(150);
+    moo(true);
+    foo();
+    moo(false);
+}
