@@ -704,16 +704,23 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 operation = "mul";
             } else if (op->value == "/") {
                 string condition = registerPool.GetNewRegister();
-                if (e1->type == "BYTE") {
-                    leftRegister = registerPool.GetNewRegister();
-                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                if (e1->type != e2->type) {
+                    if (e1->type == "BYTE") {
+                        leftRegister = registerPool.GetNewRegister();
+                        buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                    }
+                    if (e2->type == "BYTE") {
+                        rightRegister = registerPool.GetNewRegister();
+                        buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+                    }
                 }
-                if (e2->type == "BYTE") {
-                    rightRegister = registerPool.GetNewRegister();
-                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+                string zeroDivReg = registerPool.GetNewRegister();
+                if (e2->type != "INT") {
+                    // Need to zero extend into a new register, to check for zero division
+                    buffer.emit("%" + zeroDivReg + " = zext i8 %" + e2->regName + " to i32");
                 }
                 // Checking if the right hand side is 0 and jumping accordingly
-                buffer.emit("%" + condition + " = icmp eq i32 %" + rightRegister + ", 0");
+                buffer.emit("%" + condition + " = icmp eq i32 %" + zeroDivReg + ", 0");
                 int zeroDivisionBranchCheck = buffer.emit("br i1 %" + condition + ", label @, label @");
                 string zeroDivisionCaseLabel = buffer.genLabel();
                 string zeroDivisionExceptionReg = registerPool.GetNewRegister();
@@ -732,23 +739,40 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 operation = "sdiv";
                 end = normalDivisionBranchLabel;
             }
-            if (llvmSize == "i32") {
-                if (e1->type == "BYTE") {
-                    leftRegister = registerPool.GetNewRegister();
-                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
-                }
-                if (e2->type == "BYTE") {
-                    rightRegister = registerPool.GetNewRegister();
-                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
-                }
+//            if (llvmSize == "i32") {
+//                if (e1->type == "BYTE") {
+//                    leftRegister = registerPool.GetNewRegister();
+//                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+//                }
+//                if (e2->type == "BYTE") {
+//                    rightRegister = registerPool.GetNewRegister();
+//                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+//                }
+//            }
+
+
+            if (e1->type == "BYTE") {
+                leftRegister = registerPool.GetNewRegister();
+                buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
             }
+            if (e2->type == "BYTE") {
+                rightRegister = registerPool.GetNewRegister();
+                buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+            }
+
             buffer.emit("%" + regName + " = " + operation + " " + llvmSize + " %" + leftRegister + ", %" + rightRegister);
-            if (operation == "sdiv" && e1->type == "BYTE" && e2->type == "BYTE") {
+            if (llvmSize == "i8") {
                 // We truncate the i32 divison result back to i8
                 string tempReg = registerPool.GetNewRegister();
                 buffer.emit("%" + tempReg + " = trunc i32 %" + regName + " to i8");
                 regName = tempReg;
             }
+//            if (operation == "sdiv" && e1->type == "BYTE" && e2->type == "BYTE") {
+//                // We truncate the i32 divison result back to i8
+//                string tempReg = registerPool.GetNewRegister();
+//                buffer.emit("%" + tempReg + " = trunc i32 %" + regName + " to i8");
+//                regName = tempReg;
+//            }
         }
     } else if (e1->type == "BOOL" && e2->type == "BOOL") {
         // Both operands are boolean so this should be a boolean operation
