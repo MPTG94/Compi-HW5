@@ -905,10 +905,10 @@ Statement::Statement(TypeNode *type) {
         exit(0);
     }
     dataTag = "break or continue";
-    int loc = buffer.emit("br label @");
-    if (type->value == "break") {
-        breakList = buffer.makelist({loc, FIRST});
-    }
+//    int loc = buffer.emit("br label @");
+//    if (type->value == "break") {
+//        breakList = buffer.makelist({loc, FIRST});
+//    }
 }
 
 Statement::Statement(string type, Exp *exp, Statement *innerStatement) {

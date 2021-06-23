@@ -1,0 +1,58 @@
+void Func(int x) {
+	printi(x);
+}
+void maxTestsStressTestBasicFunc() {
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+	
+	Func(666);
+}
+
+void main() {
+     maxTestsStressTestBasicFunc();
+}

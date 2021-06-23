@@ -1,0 +1,9 @@
+void maxTestsReflexiveAssign() {
+	int x = 5;
+	x = x;
+	printi(x);
+}
+
+void main() {
+     maxTestsReflexiveAssign();
+}

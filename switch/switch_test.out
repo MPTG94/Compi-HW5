@@ -1,0 +1,78 @@
+declare i32 @printf(i8*, ...)
+declare void @exit(i32)
+@.int_specifier = constant [4 x i8] c"%d\0A\00"
+@.str_specifier = constant [4 x i8] c"%s\0A\00"
+@.divide_zero_msg = constant [23 x i8] c"Error division by zero\00"
+
+define void @printi(i32) {
+    %spec_ptr = getelementptr [4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0
+    call i32 (i8*, ...) @printf(i8* %spec_ptr, i32 %0)
+    ret void
+}
+
+define void @print(i8*) {
+    %spec_ptr = getelementptr [4 x i8], [4 x i8]* @.str_specifier, i32 0, i32 0
+    call i32 (i8*, ...) @printf(i8* %spec_ptr, i8* %0)
+    ret void
+}
+
+define void @fallthrough(i32) {
+    %reg2 = alloca [51 x i32]
+    %reg3 = getelementptr [51 x i32], [51 x i32]* %reg2, i32 0, i32 0
+    store i32 %0, i32* %reg3
+    br label %label_15
+label_15:
+    %reg5 = getelementptr [51 x i32], [51 x i32]* %reg2, i32 0, i32 0
+    %reg4 = load i32, i32* %reg5
+    br label %label_caselist_2
+    label_caselist_2_8:
+    %reg6 = add i32 8, 0
+    call void @printi(i32 %reg6)
+    br label %label_after_caselist_2
+    br label %label_caselist_2_3
+    label_caselist_2_3:
+    %reg7 = add i32 3, 0
+    call void @printi(i32 %reg7)
+    br label %label_caselist_2_13
+    label_caselist_2_13:
+    %reg8 = add i32 13, 0
+    call void @printi(i32 %reg8)
+    br label %label_caselist_2_default
+    label_caselist_2_default:
+    %reg9 = add i32 0, 0
+    call void @printi(i32 %reg9)
+    br label %label_after_caselist_2
+    label_caselist_2:
+    %reg10 = icmp eq i32 8, %reg4
+    br i1 %reg10, label %label_39, label %label_41
+label_39:
+    br label %label_caselist_2_8
+label_41:
+    %reg11 = icmp eq i32 3, %reg4
+    br i1 %reg11, label %label_44, label %label_46
+label_44:
+    br label %label_caselist_2_3
+label_46:
+    %reg12 = icmp eq i32 13, %reg4
+    br i1 %reg12, label %label_49, label %label_51
+label_49:
+    br label %label_caselist_2_13
+label_51:
+    br label %label_caselist_2_default
+    br label %label_after_caselist_2
+    label_after_caselist_2:
+    ret void
+}
+
+define void @main() {
+    %reg13 = alloca [50 x i32]
+    %reg14 = add i32 8, 0
+    call void @fallthrough(i32 %reg14)
+    %reg15 = add i32 13, 0
+    call void @fallthrough(i32 %reg15)
+    %reg16 = add i32 3, 0
+    call void @fallthrough(i32 %reg16)
+    %reg17 = add i32 100, 0
+    call void @fallthrough(i32 %reg17)
+    ret void
+}

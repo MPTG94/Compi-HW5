@@ -1,0 +1,8 @@
+void maxTestsTestBooleansBasic() {
+	bool a = true;
+	if (true) print("Happiness exists for those who wish for it");
+}
+
+void main() {
+     maxTestsTestBooleansBasic();
+}

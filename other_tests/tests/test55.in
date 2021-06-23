@@ -1,0 +1,18 @@
+bool Func() {
+	return 1 < 2;
+}
+bool Func2() {
+	return 2 < 1;
+}
+void maxTestsTestReturnBooleanRelop() {
+	if (Func()) {
+		print("I learned that courage was not the absence of fear, but the triumph over it. The brave man is not he who does not feel afraid, but he who conquers that fear. – Nelson Mandela");
+	}
+	if (not Func2()) {
+		print("Too many of us are not living our dreams because we are living our fears. – Les Brown");
+	}
+}
+
+void main() {
+     maxTestsTestReturnBooleanRelop();
+}

@@ -1,0 +1,10 @@
+void maxTestsTestBracketArithmetic() {
+	int x = 3 * (5 + 4) + 9 / (1 + 2);
+	printi(x);
+	x = 3 * (5 - 9) + (5 - 3) * 8 - 4 * (4 / 4);
+	printi(x);
+}
+
+void main() {
+     maxTestsTestBracketArithmetic();
+}

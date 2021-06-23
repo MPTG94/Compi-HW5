@@ -1,0 +1,12 @@
+int Func(int x, int y, int z) {
+	printi(x + y + z);
+	
+	return x + y + z;
+}
+void maxTestsReturnSum() {
+	printi(Func(3, 5, 11));
+}
+
+void main() {
+     maxTestsReturnSum();
+}

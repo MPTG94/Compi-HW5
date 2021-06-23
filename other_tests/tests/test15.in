@@ -1,0 +1,8 @@
+void maxTestsCheckTruncation() {
+	int k = 150b + 150b;
+	printi(k);
+}
+
+void main() {
+     maxTestsCheckTruncation();
+}

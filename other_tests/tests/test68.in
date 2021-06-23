@@ -1,0 +1,13 @@
+int Func(int a) {
+	return a;
+}
+int Func2(int a, int x) {
+	return a + x;
+}
+void maxTestsTestTwoFuncParameters() {
+	printi(Func2(Func(3),Func(5)));
+}
+
+void main() {
+     maxTestsTestTwoFuncParameters();
+}

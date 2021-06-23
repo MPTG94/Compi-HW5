@@ -1,0 +1,17 @@
+void Func(bool s) {
+	if (s) {
+		print("Permanence, perseverance and persistence in spite of all obstacles, discouragements, and impossibilities: It is this, that in all things distinguishes the strong soul from the weak. – Thomas Carlyle");
+	}
+}
+void maxTestsTestPassRelopToFunc() {
+	bool x = 1 < 2;
+	bool y = 2 < 1;
+	Func(x and y);
+	Func(x or y);
+}
+
+void main() {
+     maxTestsTestPassRelopToFunc();
+}
+
+

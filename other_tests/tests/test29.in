@@ -1,0 +1,12 @@
+int Func(int x) {
+	printi(x);
+	
+	return x;
+}
+void maxTestscallWithFuncParameter() {
+	printi(Func(3) + 5);
+}
+
+void main() {
+     maxTestscallWithFuncParameter();
+}

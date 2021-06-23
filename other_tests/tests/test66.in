@@ -1,0 +1,13 @@
+int Func(int x) {
+	return x + 5;
+}
+void maxTestsCheckSumBetweenFuncs() {
+	int x = Func(3) + Func(5);
+	printi(Func(3));
+	printi(Func(5));
+	printi(x);
+}
+
+void main() {
+     maxTestsCheckSumBetweenFuncs();
+}

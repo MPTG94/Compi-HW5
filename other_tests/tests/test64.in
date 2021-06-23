@@ -1,0 +1,13 @@
+void maxTestsCheckTwoBooleanVariables() {
+	bool x;
+	x = true;
+	bool y;
+	y = false;
+	if (x and not y) {
+		print("If you set goals and go after them with all the determination you can muster, your gifts will take you places that will amaze you. – Les Brown");
+	}
+}
+
+void main() {
+     maxTestsCheckTwoBooleanVariables();
+}

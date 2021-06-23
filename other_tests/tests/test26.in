@@ -1,0 +1,13 @@
+int Func(int x) {
+	printi(x);
+	return x;
+}
+void maxTestsParamReturn() {
+	int x = Func(5);
+	
+	printi(x);
+}
+
+void main() {
+     maxTestsParamReturn();
+}
