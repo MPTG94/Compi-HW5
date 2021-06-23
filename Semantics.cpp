@@ -73,7 +73,7 @@ void enterSwitch() {
     switchCounter++;
 }
 
-void exitSwitch(Statement *test) {
+void exitSwitch() {
     // TODO: need to add label to jump outside of the switch in case of all breaks, or when a case was true, we performed it and it ends with a break
     // (so we can jump outside without performing other case blocks)
     if (DEBUG) printMessage("Exiting Switch block");

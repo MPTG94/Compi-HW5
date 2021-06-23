@@ -19,7 +19,7 @@ using namespace std;
 class Statement;
 void enterSwitch();
 
-void exitSwitch(Statement* test);
+void exitSwitch();
 
 void enterLoop();
 
