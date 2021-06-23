@@ -230,13 +230,17 @@ public:
 
 class CaseDecl : public TypeNode {
 public:
+    int numericValue = 0;
+    vector<pair<int, BranchLabelIndex>> breakList;
     // For Case Num Colon Statements
     CaseDecl(Exp *num, Statements *states, TypeNode* caseLabel);
     //CaseDecl(TypeNode *num, Statements *states);
+    CaseDecl();
 };
 
 class CaseList : public TypeNode {
 public:
+    vector<pair<int, BranchLabelIndex>> breakList;
     vector<CaseDecl *> cases;
 
     // For CaseDecl CaseList
@@ -246,7 +250,7 @@ public:
     explicit CaseList(CaseDecl *cDec);
 
     // For Default Colon Statements
-    explicit CaseList(Statements *states);
+    explicit CaseList(Statements *states, N* label);
 };
 
 class FormalDecl : public TypeNode {

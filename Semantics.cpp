@@ -11,6 +11,7 @@
 
 extern char *yytext;
 int DEBUG = 0;
+int switchId = 0;
 Registers registerPool;
 CodeBuffer &buffer = CodeBuffer::instance();
 vector<shared_ptr<SymbolTable>> symTabStack;
@@ -71,6 +72,7 @@ int switchCounter = 0;
 void enterSwitch() {
     if (DEBUG) printMessage("Entering Switch block");
     switchCounter++;
+    switchId++;
 }
 
 void exitSwitch() {
@@ -552,6 +554,9 @@ Exp::Exp(TypeNode *terminal, string taggedTypeFromParser) : TypeNode(terminal->v
     type = taggedTypeFromParser;
     trueList = vector<pair<int, BranchLabelIndex>>();
     falseList = vector<pair<int, BranchLabelIndex>>();
+    if (taggedTypeFromParser == "CASE_NUM") {
+        type = "INT";
+    }
     if (taggedTypeFromParser == "NUM") {
         type = "INT";
         regName = registerPool.GetNewRegister();
@@ -824,9 +829,17 @@ Exp::Exp(Exp *e1, string tag, N *label) {
     valueAsBooleanValue = e1->valueAsBooleanValue;
     regName = e1->regName;
     instruction = e1->instruction;
-    int loc = buffer.emit("br i1 %" + regName + ", label @, label @");
-    trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
-    falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
+    if (tag != "switch") {
+        int loc = buffer.emit("br i1 %" + regName + ", label @, label @");
+        trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
+        falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
+    } else {
+        trueList = vector<pair<int, BranchLabelIndex>>();
+        falseList = vector<pair<int, BranchLabelIndex>>();
+    }
+    // NEED TO PRINT HERE CODE THAT WILL JUMP AND CHECK THE DIFFERENT CASES
+    string switchCheckerLabelName = "label_switch_" + to_string(switchId);
+    buffer.emit("br label %" + switchCheckerLabelName);
 }
 
 string loadVariableFromSymTab(int offset, string type) {
@@ -900,15 +913,20 @@ Statement::Statement(TypeNode *type) {
         } else {
             continueList = buffer.makelist({loc, FIRST});
         }
+    } else if (switchCounter != 0) {
+        // We are inside a switch, so a break and continue are both legal
+        // Creating a list to patch later with the correct place to jump to, the patch would make the jump go outside of the switch
+        int loc = buffer.emit("br label @");
+        if (type->value == "break") {
+            breakList = buffer.makelist({loc, FIRST});
+        } else {
+            continueList = buffer.makelist({loc, FIRST});
+        }
     } else if (type->value == "continue" && switchCounter != 0) {
         output::errorUnexpectedContinue(yylineno);
         exit(0);
     }
     dataTag = "break or continue";
-//    int loc = buffer.emit("br label @");
-//    if (type->value == "break") {
-//        breakList = buffer.makelist({loc, FIRST});
-//    }
 }
 
 Statement::Statement(string type, Exp *exp, Statement *innerStatement) {
@@ -1171,6 +1189,32 @@ Statement::Statement(Exp *exp, CaseList *cList) {
     if (DEBUG) {
         printMessage("Exiting statement ctor after finishing switch");
     }
+    // Print a jump to the checker of the first switch case
+    buffer.emit("label_switch_" + to_string(switchId) + ":");
+    int defaultIndex = 0;
+    string endLabel = "label_switch_" + to_string(switchId) + "_end";
+    for (int i = cList->cases.size() - 1; i >= 0; --i) {
+        if (cList->cases[i]->regName == "default") {
+            defaultIndex = i;
+            continue;
+        }
+        string tempReg = registerPool.GetNewRegister();
+        string compReg = registerPool.GetNewRegister();
+        buffer.emit("%" + tempReg + " = add i32 0, " + to_string(cList->cases[i]->numericValue));
+        buffer.emit("%" + compReg + " = icmp eq i32 %" + exp->regName + ", %" + tempReg);
+        // true label is the first label
+        string falseCaseLabel = "label_switch_" + to_string(switchId) + "_case_" + to_string(i);
+        buffer.emit("br i1 %" + compReg + ", label %" + cList->cases[i]->instruction + ", label %" + falseCaseLabel);
+        buffer.emit(falseCaseLabel + ":");
+        if (!cList->cases[i]->breakList.empty()) {
+            buffer.bpatch(cList->cases[i]->breakList, endLabel);
+        }
+    }
+    // Need to add a jump to the default case if none of the other cases was a hit
+    buffer.emit("br label %" + cList->cases[defaultIndex]->instruction);
+    buffer.bpatch(cList->breakList, endLabel);
+    buffer.emit(endLabel + ":");
+
     breakList = vector<pair<int, BranchLabelIndex>>();
     continueList = vector<pair<int, BranchLabelIndex>>();
 }
@@ -1203,12 +1247,20 @@ CaseDecl::CaseDecl(Exp *num, Statements *states, TypeNode *caseLabel) {
         output::errorMismatch(yylineno);
         exit(0);
     }
+    regName = num->regName;
     value = num->type;
+    numericValue = stoi(num->value);
+    breakList = states->breakList;
+}
+
+CaseDecl::CaseDecl() {
+
 }
 
 CaseList::CaseList(CaseDecl *cDec, CaseList *cList) {
     cases = vector<CaseDecl *>(cList->cases);
     cases.push_back(cDec);
+    breakList = cList->breakList;
     value = "case list";
 }
 
@@ -1217,8 +1269,17 @@ CaseList::CaseList(CaseDecl *cDec) {
     value = "case list";
 }
 
-CaseList::CaseList(Statements *states) {
-
+CaseList::CaseList(Statements *states, N *label) {
+    // This is the rule for default case
+    CaseDecl *tempCase = new CaseDecl();
+    tempCase->value = "INT";
+    tempCase->regName = "default";
+    tempCase->instruction = label->instruction;
+    buffer.bpatch(buffer.makelist({label->loc, FIRST}), label->instruction);
+    this->cases.push_back(tempCase);
+    // Printing the exit outside of default
+    int loc = buffer.emit("br label @");
+    this->breakList = buffer.makelist({loc, FIRST});
 }
 
 void insertFunctionParameters(Formals *formals) {
@@ -1284,7 +1345,7 @@ Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement) {
 }
 
 string DeclareCaseLabel() {
-    buffer.emit("generating new label");
+    buffer.emit("; generating new label");
     int loc = buffer.emit("br label @");
     string label = buffer.genLabel();
     buffer.bpatch(buffer.makelist({loc, FIRST}), label);
