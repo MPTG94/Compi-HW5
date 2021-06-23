@@ -73,7 +73,7 @@ void enterSwitch() {
     switchCounter++;
 }
 
-void exitSwitch() {
+void exitSwitch(Statement *test) {
     // TODO: need to add label to jump outside of the switch in case of all breaks, or when a case was true, we performed it and it ends with a break
     // (so we can jump outside without performing other case blocks)
     if (DEBUG) printMessage("Exiting Switch block");
@@ -221,6 +221,10 @@ TypeNode::TypeNode(string str) : regName(""), value(), instruction("") {
         value = "BYTE";
     } else {
         value = str;
+    }
+
+    if (value == "OpenCase") {
+        instruction = DeclareCaseLabel();
     }
 }
 
@@ -811,7 +815,10 @@ Exp::Exp(Exp *e1, string tag, N *label) {
         output::errorMismatch(yylineno);
         exit(0);
     }
-    buffer.bpatch(buffer.makelist(pair<int, BranchLabelIndex>(label->loc, FIRST)), label->instruction);
+    if (label) {
+        buffer.bpatch(buffer.makelist(pair<int, BranchLabelIndex>(label->loc, FIRST)), label->instruction);
+    }
+    buffer.emit("I am using the special constructor");
     value = e1->value;
     type = e1->type;
     valueAsBooleanValue = e1->valueAsBooleanValue;
@@ -898,6 +905,10 @@ Statement::Statement(TypeNode *type) {
         exit(0);
     }
     dataTag = "break or continue";
+    int loc = buffer.emit("br label @");
+    if (type->value == "break") {
+        breakList = buffer.makelist({loc, FIRST});
+    }
 }
 
 Statement::Statement(string type, Exp *exp, Statement *innerStatement) {
@@ -1065,7 +1076,7 @@ Statement::Statement(Type *t, TypeNode *id, Exp *exp) {
             // Need to zero extend the value to the assigned type
             dataRegister = registerPool.GetNewRegister();
             buffer.emit("%" + dataRegister + " = zext i8 %" + exp->regName + " to i32");
-        } else if (t->value == "BYTE" && exp->type == "BYTE") {
+        } else if ((t->value == "BYTE" && exp->type == "BYTE") || (t->value == "INT" && exp->type == "INT")) {
             dataRegister = exp->regName;
         }
         buffer.emit("%" + regName + " = add " + regType + " 0,%" + dataRegister);
@@ -1157,9 +1168,17 @@ Statement::Statement(Exp *exp, CaseList *cList) {
     }
 
     dataTag = "switch block";
+    if (DEBUG) {
+        printMessage("Exiting statement ctor after finishing switch");
+    }
+    breakList = vector<pair<int, BranchLabelIndex>>();
+    continueList = vector<pair<int, BranchLabelIndex>>();
 }
 
 Statements::Statements(Statement *state) {
+    if (DEBUG) {
+        printMessage("I reached this ctor");
+    }
     breakList = state->breakList;
     continueList = state->continueList;
 }
@@ -1169,7 +1188,7 @@ Statements::Statements(Statements *states, Statement *state) {
     continueList = buffer.merge(states->continueList, state->continueList);
 }
 
-CaseDecl::CaseDecl(Exp *num, Statements *states) {
+CaseDecl::CaseDecl(Exp *num, Statements *states, TypeNode *caseLabel) {
     if (DEBUG) {
         printMessage("value of statements is:");
         printMessage(states->value);
@@ -1178,6 +1197,7 @@ CaseDecl::CaseDecl(Exp *num, Statements *states) {
         printMessage("type of exp:");
         printMessage(num->type);
     }
+    instruction = caseLabel->instruction;
     if (num->type != "INT" && num->type != "BYTE") {
         //if (num->value != "INT" && num->value != "BYTE") {
         output::errorMismatch(yylineno);
@@ -1261,4 +1281,12 @@ Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement) {
     ifStatement->breakList = buffer.merge(ifStatement->breakList, elseStatement->continueList);
     ifStatement->continueList = buffer.merge(ifStatement->continueList, elseStatement->continueList);
     return ifStatement;
+}
+
+string DeclareCaseLabel() {
+    buffer.emit("generating new label");
+    int loc = buffer.emit("br label @");
+    string label = buffer.genLabel();
+    buffer.bpatch(buffer.makelist({loc, FIRST}), label);
+    return label;
 }

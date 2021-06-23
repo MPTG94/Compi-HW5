@@ -75,7 +75,7 @@ Statement : LBRACE OS Statements CS RBRACE {$$ = new Statement(dynamic_cast<Stat
             WHILE LPAREN N Exp RPAREN {$$ = parseBooleanCondition(dynamic_cast<Exp*>($4));} {$$ = new Statement("while", dynamic_cast<Exp*>($4));enterLoop();} OS Statement CS{exitLoop(dynamic_cast<N*>($3),dynamic_cast<P*>($6),dynamic_cast<Statement*>($9)), $$ = $7;} |
             BREAK SC{$$ = new Statement($1);} |
             CONTINUE SC{$$ = new Statement($1);} |
-            SWITCH {enterSwitch();} LPAREN Exp N {new Exp(dynamic_cast<Exp*>($4), "switch", dynamic_cast<N*>($5));} RPAREN LBRACE OS CaseList {$$ = new Statement(dynamic_cast<Exp*>($4),dynamic_cast<CaseList*>($10));} CS {exitSwitch();} RBRACE;
+            SWITCH {enterSwitch();} LPAREN Exp N {new Exp(dynamic_cast<Exp*>($4), "switch", dynamic_cast<N*>($5));} RPAREN LBRACE OS CaseList {$$ = new Statement(dynamic_cast<Exp*>($4),dynamic_cast<CaseList*>($10));} CS {exitSwitch(dynamic_cast<Statement*>($11));} RBRACE;
 Call : ID LPAREN ExpList RPAREN{$$ = new Call($1, dynamic_cast<ExpList*>($3));} |
        ID LPAREN RPAREN{$$ = new Call($1);};
 ExpList : Exp{$$ = new ExpList(dynamic_cast<Exp*>($1));} |
@@ -101,12 +101,13 @@ Exp : LPAREN Exp RPAREN{$$ = new Exp(dynamic_cast<Exp*>($2));} |
 CaseList : CaseDecl CaseList{$$ = new CaseList(dynamic_cast<CaseDecl*>($1),dynamic_cast<CaseList*>($2));} |
            CaseDecl{$$ = new CaseList(dynamic_cast<CaseDecl*>($1));} |
            DEFAULT COLON Statements{$$ = new CaseList(dynamic_cast<Statements*>($3));};
-CaseDecl : CASE NUM COLON M Statements{$$ = new CaseDecl(new Exp($2, "NUM"), dynamic_cast<Statements*>($5));};
+CaseDecl : CASE CaseOpener NUM COLON Statements{$$ = new CaseDecl(new Exp($3, "NUM"), dynamic_cast<Statements*>($5), dynamic_cast<TypeNode*>($2));};
 OS : {openNewScope();};
 CS : {closeCurrentScope();};
 SPECIAL_EXP_PARSE : Exp {$$ = new Exp(dynamic_cast<Exp*>($1), "STRING");};
 M : {$$ = new M();};
 N : {$$ = new N();};
+CaseOpener : {$$ = new TypeNode("OpenCase");}
 
 %%
 

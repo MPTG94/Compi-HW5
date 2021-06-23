@@ -16,10 +16,10 @@
 extern int yylineno;
 extern char *yytext;
 using namespace std;
-
+class Statement;
 void enterSwitch();
 
-void exitSwitch();
+void exitSwitch(Statement* test);
 
 void enterLoop();
 
@@ -231,7 +231,7 @@ public:
 class CaseDecl : public TypeNode {
 public:
     // For Case Num Colon Statements
-    CaseDecl(Exp *num, Statements *states);
+    CaseDecl(Exp *num, Statements *states, TypeNode* caseLabel);
     //CaseDecl(TypeNode *num, Statements *states);
 };
 
@@ -305,5 +305,7 @@ void backpatchIf(M *label, Exp *exp);
 void backpatchIfElse(M *firstLabel, N *secondlabel, Exp *exp);
 
 Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement);
+
+string DeclareCaseLabel();
 
 #endif //HW3_SEMANTICS_H
