@@ -1,0 +1,29 @@
+bool printb(bool x) {
+    if (x) printi(1);
+    if (not x) print("0");
+    return x;
+}
+
+void main()
+{
+    int i = 0;
+    int x = 5;
+    int y = 2;
+    int z;
+    while(i < 3) {
+        while(z < x * y) {
+            z = z + y;
+            printi(z);
+            if (z / 3 == 0 and z / 5 == 0)
+                break;
+            else {
+                if (z / 2 == 0) {
+                    continue;
+                }
+            }
+        }
+        printi(x);
+        x = z;
+        i = i + 1;
+    }
+}

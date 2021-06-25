@@ -1,0 +1,21 @@
+//basic arithmetic (int & byte)
+void main() {
+    int x;
+    byte y;
+    printi(x+y); //should be 0.
+    //aritmethic with a single operand.
+    printi(x*2b);
+    printi(y*2);
+    printi(255*2b);
+    printi(255b*2);
+    printi(255+255b);
+    printi(255b+255);
+    printi(255b-255);
+    printi(255-255b);
+    printi(x/1b);
+    printi(y/1);
+    printi(8b/2);
+    printi(10/4b);
+    printi(x/x);
+    return;
+}

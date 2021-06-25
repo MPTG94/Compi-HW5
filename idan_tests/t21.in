@@ -1,0 +1,25 @@
+void main() {
+    int max;
+    int x1 = 0;
+    int x2 = 1;
+    int x3 = 10;
+    int x4 = 100;
+
+    int i = 0;
+    while (i < 4) {
+        if (x1 > max) max = x1;
+        if (x2 > max) max = x2;
+        if (x3 > max) {
+            max = x3;
+        }
+        if (x4 > max) {
+            max = x4;
+        }
+        printi(max);
+        max = 0;
+        x4 = 0 - x4;
+        x2 = x2 * 9;
+        i = i + 1;
+    }
+
+}

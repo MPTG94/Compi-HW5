@@ -1,0 +1,24 @@
+int func(int x, int y) {
+   int x1 = 2*y;
+   int y1 = x1;
+   return y1 * 5;
+}
+
+void main() {
+   int x = 3;
+   int y = 8;
+   int z = func(x, y);
+   printi(z);
+   while(true) {
+       int i = 0;
+       printi(i);
+       break;
+       print("shouldn't get here1");
+       continue;
+       while(true) {
+          int j = 5;
+          print("shouldn't get here2");
+          continue;
+       }
+   }
+}

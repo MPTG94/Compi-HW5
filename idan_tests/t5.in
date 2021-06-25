@@ -1,0 +1,14 @@
+//basic arithmetic (int)
+void main() {
+    int x;
+    printi(x); //should be 0.
+    //aritmethic with a single operand.
+    printi(x*2);
+    printi(x+1);
+    printi(0-1);
+    printi(0/1);
+    printi(8/2);
+    printi(10/4);
+    printi(x/x);
+    return;
+}

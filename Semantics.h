@@ -119,7 +119,6 @@ public:
     explicit Exp(Call *call);
 
     // for exp in switch
-    // TODO: complete this
     Exp(Exp *e1, string tag, N* label = nullptr);
 
     // for NOT Exp
@@ -208,7 +207,6 @@ public:
     explicit Statement(TypeNode *type);
 
     // For Switch LParen Exp RParen Lbrace CaseList Rbrace
-    // TODO: complete this
     Statement(Exp *exp, CaseList *cList);
 };
 
@@ -232,6 +230,7 @@ class CaseDecl : public TypeNode {
 public:
     int numericValue = 0;
     vector<pair<int, BranchLabelIndex>> breakList;
+    vector<pair<int, BranchLabelIndex>> continueList;
     // For Case Num Colon Statements
     CaseDecl(Exp *num, Statements *states, TypeNode* caseLabel);
     //CaseDecl(TypeNode *num, Statements *states);
@@ -241,6 +240,7 @@ public:
 class CaseList : public TypeNode {
 public:
     vector<pair<int, BranchLabelIndex>> breakList;
+    vector<pair<int, BranchLabelIndex>> continueList;
     vector<CaseDecl *> cases;
 
     // For CaseDecl CaseList

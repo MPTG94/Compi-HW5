@@ -1,0 +1,17 @@
+// simple switch
+void main() {
+    int i = 0;
+    while(i < 20) {
+        printi(i);
+        if (i < 5) {
+            print("i < 5");
+            i = i + 1;
+        } else if (i < 10) {
+            print("i < 10");
+            i = i + 1;
+        } else {
+            print("i >= 10");
+            i = i + 2;
+        }
+    }
+}

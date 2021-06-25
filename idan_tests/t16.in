@@ -1,0 +1,33 @@
+//basic boolean operands (doesn't check short circuit evaluation)
+
+bool printb(bool val) {
+    if (val) {
+        print("true");
+        return true;
+    }
+    print("false");
+    return false;
+}
+
+void main() {
+    bool b1;
+    bool b2 = true;
+    bool b3 = false;
+    bool res;
+    printb(b1);
+    printb(b2);
+    printb(b3);
+    res = not b1;
+    printb(res);
+    printb(not b2);
+    res = b2 or true;
+    printb(res);
+    printb(b2 or false);
+    printb(false or true);
+    printb(false or b3);
+    printb(true and true);
+    printb(true and false);
+    printb(false and b2);
+    printb(b1 and b3);
+
+}

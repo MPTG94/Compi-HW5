@@ -1,0 +1,14 @@
+//basic if else
+void main() {
+    if(true) {
+        printi(1);
+    }
+    else printi(0);
+
+    if (false) {
+        print("if");
+    }
+    else {
+        print("else");
+    }
+}

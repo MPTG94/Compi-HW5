@@ -1,0 +1,37 @@
+bool printb(bool x) {
+    if (x) printi(1);
+    if (not x) print("0");
+    return x;
+}
+
+void main()
+{
+    int i = 0;
+    int a = 0;
+    while(i < 5) {
+        if (a == 10) {
+            i = i + 1;
+        }
+        switch (i) {
+            case 0: {
+                print("case 0");
+                break;
+            }
+            case 1: {
+                print("case 1");
+                a = a + 1;
+                continue;
+            }
+            case 2: {
+                print("case 2");
+            }
+            default: {
+                print("default");
+                break;
+            }
+        }
+    printi(a + i);
+    i = i + 1;
+    }
+}
+

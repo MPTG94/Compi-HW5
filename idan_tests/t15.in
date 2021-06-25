@@ -1,0 +1,14 @@
+//basic while (with continue)
+
+void main() {
+   int x = 0;
+   printi(123);
+   print("abcd");
+   while(x < 10) {
+       printi(x);
+       x = x + 1;
+       continue;
+       print("abcd");
+       break;
+   }
+}

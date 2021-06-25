@@ -1,0 +1,8 @@
+//output functions.
+void main() {
+    print("testing print functions");
+    print("a");
+    printi(1);
+    int x = 123;
+    printi(x);
+}

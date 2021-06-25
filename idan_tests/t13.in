@@ -1,0 +1,7 @@
+//basic while (with break)
+void main() {
+    while(true) {
+        printi(1);
+        break;
+    }
+}

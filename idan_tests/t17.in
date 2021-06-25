@@ -1,0 +1,33 @@
+//basic boolean operands (checks short circuit evaluation)
+
+bool printb(int val) {
+    printi(val);
+    int x;
+    switch (val) {
+        case 0:
+            x = 0;
+        case 3:
+            return false;
+        case 1:
+            x = 1;
+        case 2:
+            return true;
+    }
+}
+
+void main() {
+    bool b1 = true;
+    bool b2 = false;
+
+    bool res;
+    res = printb(1) or printb(1);
+    res = printb(2) or printb(0);
+    res = printb(3) or printb(2);
+    res = printb(0) or printb(3);
+
+    res = printb(1) and printb(1);
+    res = printb(2) and printb(0);
+    res = printb(3) and printb(2);
+    res = printb(0) and printb(3);
+
+}

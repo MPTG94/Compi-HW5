@@ -12,6 +12,7 @@
 extern char *yytext;
 int DEBUG = 0;
 int switchId = 0;
+int maxSwitch = 0;
 Registers registerPool;
 CodeBuffer &buffer = CodeBuffer::instance();
 vector<shared_ptr<SymbolTable>> symTabStack;
@@ -72,14 +73,17 @@ int switchCounter = 0;
 void enterSwitch() {
     if (DEBUG) printMessage("Entering Switch block");
     switchCounter++;
-    switchId++;
+    maxSwitch++;
+    switchId = maxSwitch;
 }
 
 void exitSwitch() {
-    // TODO: need to add label to jump outside of the switch in case of all breaks, or when a case was true, we performed it and it ends with a break
     // (so we can jump outside without performing other case blocks)
     if (DEBUG) printMessage("Exiting Switch block");
     switchCounter--;
+    if (switchCounter != 0) {
+        switchId--;
+    }
 }
 
 void enterLoop() {
@@ -98,13 +102,13 @@ void exitLoop(N *first, P *second, Statement *statement) {
     buffer.bpatch(buffer.makelist({second->loc, SECOND}), label);
     // backpatch the unconditional jump at the end of the loop to the condition evaluation
     buffer.bpatch(buffer.makelist({loc, FIRST}), first->instruction);
-    if (!statement->breakList.empty()) {
-        // backpatch the jump outside the loop in case of a break
-        buffer.bpatch(statement->breakList, label);
-    }
     if (!statement->continueList.empty()) {
         // backpatch the jump to the condition evaluation in case of a continue
         buffer.bpatch(statement->continueList, first->instruction);
+    }
+    if (!statement->breakList.empty()) {
+        // backpatch the jump outside the loop in case of a break
+        buffer.bpatch(statement->breakList, label);
     }
 }
 
@@ -944,7 +948,8 @@ Statement::Statement(TypeNode *type) {
         if (type->value == "break") {
             breakList = buffer.makelist({loc, FIRST});
         } else {
-            continueList = buffer.makelist({loc, FIRST});
+            output::errorUnexpectedContinue(yylineno);
+            exit(0);
         }
     } else if (type->value == "continue" && switchCounter != 0) {
         output::errorUnexpectedContinue(yylineno);
@@ -1245,6 +1250,12 @@ Statement::Statement(Exp *exp, CaseList *cList) {
 
     breakList = vector<pair<int, BranchLabelIndex>>();
     continueList = vector<pair<int, BranchLabelIndex>>();
+    continueList.reserve(continueList.size() + cList->continueList.size());
+    continueList.insert(continueList.end(), cList->continueList.begin(), cList->continueList.end());
+    for (auto & i : cList->cases) {
+        continueList.reserve(continueList.size() + i->continueList.size());
+        continueList.insert(continueList.end(), i->continueList.begin(), i->continueList.end());
+    }
 }
 
 Statements::Statements(Statement *state) {
@@ -1279,6 +1290,7 @@ CaseDecl::CaseDecl(Exp *num, Statements *states, TypeNode *caseLabel) {
     value = num->type;
     numericValue = stoi(num->value);
     breakList = states->breakList;
+    continueList = states->continueList;
 }
 
 CaseDecl::CaseDecl() {
@@ -1289,12 +1301,19 @@ CaseList::CaseList(CaseDecl *cDec, CaseList *cList) {
     cases = vector<CaseDecl *>(cList->cases);
     cases.push_back(cDec);
     breakList = cList->breakList;
+    breakList.reserve(breakList.size() + cDec->breakList.size());
+    breakList.insert(breakList.end(), cDec->breakList.begin(), cDec->breakList.end());
+    continueList = cList->continueList;
+    continueList.insert(continueList.end(), cDec->continueList.begin(), cDec->continueList.end());
+
     value = "case list";
 }
 
 CaseList::CaseList(CaseDecl *cDec) {
     cases.push_back(cDec);
     value = "case list";
+    breakList = cDec->breakList;
+    continueList = cDec->continueList;
 }
 
 CaseList::CaseList(Statements *states, N *label) {
@@ -1308,6 +1327,7 @@ CaseList::CaseList(Statements *states, N *label) {
     // Printing the exit outside of default
     int loc = buffer.emit("br label @");
     this->breakList = buffer.merge(states->breakList, buffer.makelist({loc, FIRST}));
+    this->continueList = states->continueList;
 }
 
 void insertFunctionParameters(Formals *formals) {
@@ -1367,7 +1387,7 @@ void backpatchIfElse(M *label1, N *label2, Exp *exp) {
 }
 
 Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement) {
-    ifStatement->breakList = buffer.merge(ifStatement->breakList, elseStatement->continueList);
+    ifStatement->breakList = buffer.merge(ifStatement->breakList, elseStatement->breakList);
     ifStatement->continueList = buffer.merge(ifStatement->continueList, elseStatement->continueList);
     return ifStatement;
 }

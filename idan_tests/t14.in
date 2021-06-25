@@ -1,0 +1,30 @@
+//basic relop
+
+bool printb(bool val) {
+    if (val) {
+        print("true");
+        return true;
+    }
+    print("false");
+    return false;
+}
+
+void main() {
+    int x = 1;
+    int y = 1;
+    bool res;
+    printb(1 == 1);
+    printb(1 != x);
+    printb(x <= y);
+    printb(y >= y);
+    printb(1>1);
+    printb(x<y);
+    y = 2;
+    printb(x == y);
+    printb(y != x);
+    printb(1 <= y);
+    printb(1 >= y);
+    printb(x < y);
+    printb(x > y);
+
+}

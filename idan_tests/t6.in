@@ -1,0 +1,16 @@
+//basic arithmetic (byte)
+void main() {
+    byte x;
+    printi(x); //should be 0.
+    //aritmethic with a single operand.
+    printi(x*2b);
+    printi(x+1b);
+    printi(0b-1b);
+    printi(x/1b);
+    printi(250b + 250b);
+    printi(250b * 2b);
+    printi(8b/2b);
+    printi(10b/4b);
+    printi(x/x);
+    return;
+}

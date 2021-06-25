@@ -1,0 +1,37 @@
+void main()
+{
+    int i = 0;
+    int x = 0;
+    i = i - 3;
+    while(i < 10) {
+        i = i + 1;
+        x = x + 1;
+        switch(i) {
+            case 1: {
+                switch (x) {
+                    default: {
+                        printi(x);
+                        x = x + 1;
+                        continue;
+                    }
+                }
+                continue;
+            }
+            case 2: {
+                print("i == 2");
+                break;
+            }
+            default: {
+                if (x > 5) {
+                    print("x > 5");
+                    break;
+                } else {
+                    print("x <= 5");
+                    continue;
+                }
+                x = x + 1;
+            }
+        }
+    printi(i);
+    }
+}

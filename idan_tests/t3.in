@@ -1,0 +1,16 @@
+void fallthrough(int x) {
+    switch (x) {
+            case 1: printi(1); break;
+            case 2: printi(2);
+            case 3: printi(3);
+            default: printi(0);
+    }
+}
+
+
+void main() {
+	fallthrough(1);
+    fallthrough(2);
+    fallthrough(3);
+    fallthrough(4);
+}
