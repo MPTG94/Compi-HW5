@@ -629,6 +629,7 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
     trueList = vector<pair<int, BranchLabelIndex>>();
     falseList = vector<pair<int, BranchLabelIndex>>();
     string end = "";
+    bool bothByte = false;
     // Need to check the type of the expressions on each side, to make sure that a logical operator (AND/OR) is used on a boolean type
     if ((e1->type == "INT" || e1->type == "BYTE") && (e2->type == "INT" || e2->type == "BYTE")) {
         if (taggedTypeFromParser == "EQ_NEQ_RELOP" || taggedTypeFromParser == "REL_RELOP") {
@@ -686,16 +687,29 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
             }
         } else if (taggedTypeFromParser == "ADD_SUB_BINOP" || taggedTypeFromParser == "MUL_DIV_BINOP") {
             // This is an arithmetic operation between two numbers
+            if (e1->type == "BYTE" && e2->type == "BYTE") {
+                bothByte = true;
+            }
+            regName = registerPool.GetNewRegister();
+            string operation;
+            string leftRegister = e1->regName;
+            string rightRegister = e2->regName;
             type = "BYTE";
             string llvmSize = "i8";
             if (e1->type == "INT" || e2->type == "INT") {
                 type = "INT";
                 llvmSize = "i32";
             }
-            regName = registerPool.GetNewRegister();
-            string operation;
-            string leftRegister = e1->regName;
-            string rightRegister = e2->regName;
+            if (e1->type != e2->type) {
+                if (e1->type == "BYTE") {
+                    leftRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                }
+                if (e2->type == "BYTE") {
+                    rightRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+                }
+            }
             if (op->value == "+") {
                 operation = "add";
             } else if (op->value == "-") {
@@ -704,23 +718,15 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 operation = "mul";
             } else if (op->value == "/") {
                 string condition = registerPool.GetNewRegister();
-                if (e1->type != e2->type) {
-                    if (e1->type == "BYTE") {
-                        leftRegister = registerPool.GetNewRegister();
-                        buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
-                    }
-                    if (e2->type == "BYTE") {
-                        rightRegister = registerPool.GetNewRegister();
-                        buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
-                    }
-                }
-                string zeroDivReg = registerPool.GetNewRegister();
-                if (e2->type != "INT") {
-                    // Need to zero extend into a new register, to check for zero division
-                    buffer.emit("%" + zeroDivReg + " = zext i8 %" + e2->regName + " to i32");
+                // Division will always be by integers
+                if (bothByte) {
+                    leftRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+                    rightRegister = registerPool.GetNewRegister();
+                    buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
                 }
                 // Checking if the right hand side is 0 and jumping accordingly
-                buffer.emit("%" + condition + " = icmp eq i32 %" + zeroDivReg + ", 0");
+                buffer.emit("%" + condition + " = icmp eq i32 %" + rightRegister + ", 0");
                 int zeroDivisionBranchCheck = buffer.emit("br i1 %" + condition + ", label @, label @");
                 string zeroDivisionCaseLabel = buffer.genLabel();
                 string zeroDivisionExceptionReg = registerPool.GetNewRegister();
@@ -735,7 +741,7 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 buffer.bpatch(buffer.makelist({zeroDivisionBranchCheck, SECOND}), normalDivisionBranchLabel);
                 // Backpatching the emitted label, so it jumps to the correct place
                 buffer.bpatch(buffer.makelist({normalDivisionCaseLabelLoc, FIRST}), normalDivisionBranchLabel);
-                string llvmSize = "i32";
+                llvmSize = "i32";
                 operation = "sdiv";
                 end = normalDivisionBranchLabel;
             }
@@ -751,28 +757,22 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
 //            }
 
 
-            if (e1->type == "BYTE") {
-                leftRegister = registerPool.GetNewRegister();
-                buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
-            }
-            if (e2->type == "BYTE") {
-                rightRegister = registerPool.GetNewRegister();
-                buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
-            }
+//            if (e1->type == "BYTE") {
+//                leftRegister = registerPool.GetNewRegister();
+//                buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
+//            }
+//            if (e2->type == "BYTE") {
+//                rightRegister = registerPool.GetNewRegister();
+//                buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
+//            }
 
             buffer.emit("%" + regName + " = " + operation + " " + llvmSize + " %" + leftRegister + ", %" + rightRegister);
-            if (llvmSize == "i8") {
-                // We truncate the i32 divison result back to i8
+            if (operation == "sdiv" && bothByte) {
+                // Need to trunc the result back to i8
                 string tempReg = registerPool.GetNewRegister();
                 buffer.emit("%" + tempReg + " = trunc i32 %" + regName + " to i8");
                 regName = tempReg;
             }
-//            if (operation == "sdiv" && e1->type == "BYTE" && e2->type == "BYTE") {
-//                // We truncate the i32 divison result back to i8
-//                string tempReg = registerPool.GetNewRegister();
-//                buffer.emit("%" + tempReg + " = trunc i32 %" + regName + " to i8");
-//                regName = tempReg;
-//            }
         }
     } else if (e1->type == "BOOL" && e2->type == "BOOL") {
         // Both operands are boolean so this should be a boolean operation
@@ -838,7 +838,6 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
     }
 }
 
-// TODO: update this so it prints out correct LLVM code
 Exp::Exp(Exp *e1, string tag, N *label) {
     if (tag == "switch" && (e1->type != "INT" && e1->type != "BYTE")) {
         output::errorMismatch(yylineno);
