@@ -1,0 +1,14 @@
+void testRecursion(int x) {
+	if (x >= 10) {
+		return;
+	}
+	printi(x);
+	testRecursion(x + 1);
+}
+void maxTestsTestRecursion() {
+	testRecursion(0);
+}
+
+void main() {
+     maxTestsTestRecursion();
+}

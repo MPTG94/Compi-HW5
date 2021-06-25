@@ -15,5 +15,5 @@ void main() {
     testDefualt(632);
     testDefualt(900786);
     testDefualt(3);
-    test_defualt(123);
+    testDefualt(123);
 }

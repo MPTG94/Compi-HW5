@@ -1,0 +1,15 @@
+int recursiveFibo(int x) {
+	if (x == 0 or x == 1) return 1;
+	return recursiveFibo(x - 1) + recursiveFibo(x - 2);
+}
+void maxTestsTestRecursiveFiboOutputs() {
+	int x;
+	while (x < 10) {
+		printi(recursiveFibo(x));
+		x = x + 1;
+	}
+}
+
+void main() {
+     maxTestsTestRecursiveFiboOutputs();
+}

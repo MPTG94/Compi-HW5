@@ -1,0 +1,19 @@
+void Func(int i, int k, byte c) {
+	printi(i);
+	
+	printi(k);
+	
+	printi(c);
+}
+void maxTestsPassMultipleParametersToFunc() {
+	int t = 33;
+	byte s = 3b;
+	Func(8 + 2, t, s + 8b);
+	
+	Func(14, t, s + 8b);
+}
+
+
+void main() {
+     maxTestsPassMultipleParametersToFunc();
+}

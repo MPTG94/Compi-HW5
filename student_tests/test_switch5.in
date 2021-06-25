@@ -1,0 +1,10 @@
+void testDefualt(int x) {
+    switch (x) {
+            case 1: printi(1); break;
+    }
+}
+
+void main() {
+	testDefualt(1);
+	testDefualt(2);	
+}

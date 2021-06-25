@@ -1,0 +1,12 @@
+void maxTestscheckBasicArithmetics() {
+	int x = 3 + 5 * 2 + 3;
+	printi(x);
+	x = 3 + 77 - 44;
+	printi(x);
+	x = 32 / 2 + 5 * 3;
+	printi(x);
+}
+
+void main() {
+     maxTestscheckBasicArithmetics();
+}

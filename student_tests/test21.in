@@ -1,0 +1,11 @@
+void maxTestsArithmeticBetweenVars() {
+	int x = 3;
+	int y = 7;
+	int z = 31;
+	int t = x + y + z * x - y / z;
+	printi(t);
+}
+
+void main() {
+     maxTestsArithmeticBetweenVars();
+}

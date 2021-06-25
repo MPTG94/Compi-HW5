@@ -1,0 +1,16 @@
+bool Func(int x) {
+	if (x > 3) return true;
+	return false;
+}
+bool maxTestscheckReturnBoolFromFunc() {
+	if (Func(5)) {
+		print("Hardships often prepare ordinary people for an extraordinary destiny. – C.S. Lewis");
+	}
+	if (not Func(1)) {
+		print("Believe in yourself. You are braver than you think, more talented than you know, and capable of more than you imagine. ― Roy T. Bennett");
+	}
+}
+
+void main() {
+     maxTestscheckReturnBoolFromFunc();
+}

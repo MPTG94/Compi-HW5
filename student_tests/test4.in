@@ -1,0 +1,10 @@
+void maxTestsAssignVarToVar() {
+	int x = 3;
+	int y = x;
+	printi(y);	
+	printi(x);
+}
+
+void main() {
+     maxTestsAssignVarToVar();
+}

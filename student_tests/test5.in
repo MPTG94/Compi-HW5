@@ -1,0 +1,11 @@
+void maxTestsDefineThenAssign() {
+	int x;
+	x = 5;
+	printi(x);	
+	x = 7;
+	printi(x);
+}
+
+void main() {
+     maxTestsDefineThenAssign();
+}

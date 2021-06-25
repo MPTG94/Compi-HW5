@@ -101,7 +101,7 @@ Exp : LPAREN Exp RPAREN{$$ = new Exp(dynamic_cast<Exp*>($2));} |
 CaseList : CaseDecl CaseList{$$ = new CaseList(dynamic_cast<CaseDecl*>($1),dynamic_cast<CaseList*>($2));} |
            CaseDecl{$$ = new CaseList(dynamic_cast<CaseDecl*>($1));} |
            DEFAULT COLON N Statements{$$ = new CaseList(dynamic_cast<Statements*>($4), dynamic_cast<N*>($3));};
-CaseDecl : CASE CaseOpener NUM COLON Statements{$$ = new CaseDecl(new Exp($3, "NUM"), dynamic_cast<Statements*>($5), dynamic_cast<TypeNode*>($2));};
+CaseDecl : CASE CaseOpener NUM COLON Statements{$$ = new CaseDecl(new Exp($3, "CASE_NUM"), dynamic_cast<Statements*>($5), dynamic_cast<TypeNode*>($2));};
 OS : {openNewScope();};
 CS : {closeCurrentScope();};
 SPECIAL_EXP_PARSE : Exp {$$ = new Exp(dynamic_cast<Exp*>($1), "STRING");};

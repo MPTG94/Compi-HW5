@@ -1,0 +1,11 @@
+void Func(bool s, bool t) {
+	print("If you believe it will work out, you’ll see opportunities. If you believe it won’t, you will see obstacles. – Wayne Dyer");
+}
+void maxTestsTestPassRelopToFunc() {
+	Func(1 < 2, 3 < 4);
+}
+
+void main() {
+     maxTestsTestPassRelopToFunc();
+}
+

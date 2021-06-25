@@ -1,0 +1,15 @@
+void Func(bool s, bool t) {
+	if (s) {
+		print("Our greatest glory is not in never falling, but in rising every time we fall. — Confucius");
+	}
+	if (not t) {
+		print("All our dreams can come true, if we have the courage to pursue them. – Walt Disney");
+	}
+}
+void maxTestscallFunctionWithBoolean() {
+	Func(true, false);
+}
+
+void main() {
+     maxTestscallFunctionWithBoolean();
+}

@@ -1,0 +1,12 @@
+byte returnByte() {
+	return 200b;
+}
+void maxTestsAssignFromFunc() {
+	byte x = returnByte();
+	printi(x);
+}
+
+
+void main() {
+     maxTestsAssignFromFunc();
+}

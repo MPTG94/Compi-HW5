@@ -1,0 +1,22 @@
+bool Func() {
+	int x = 5;
+	bool y = 2 < 5 and x + 3 > 2;
+	return y;
+}
+bool Func2() {
+	int x = 5;
+	bool y = 2 < 5 and x + 3 > 2;
+	return not y and Func();
+}
+void maxTestsCheckCorrectRelopBoolReturn() {
+	if (Func()) {
+		print("There is only one thing that makes a dream impossible to achieve: the fear of failure. ― Paulo Coelho");
+	}
+	if (not Func2()) {
+		print("It’s not whether you get knocked down. It’s whether you get up. – Vince Lombardi");
+	}
+}
+
+void main() {
+     maxTestsCheckCorrectRelopBoolReturn();
+}

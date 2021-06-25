@@ -1,0 +1,7 @@
+void maxTestsTestOrAndOrder() {
+	if (5 > 3 and 3 < 1 or true) print("I attribute my success to this: I never gave or took any excuse. – Florence Nightingale");
+}
+
+void main() {
+     maxTestsTestOrAndOrder();
+}

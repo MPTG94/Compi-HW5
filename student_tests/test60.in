@@ -1,0 +1,14 @@
+void Func(bool s) {
+	if (s) {
+		print("Definiteness of purpose is the starting point of all achievement. – W. Clement Stone");
+	}
+}
+void maxTestsTestPassRelopToFunc() {
+	Func(false);
+	Func(true);
+}
+
+void main() {
+     maxTestsTestPassRelopToFunc();
+}
+

@@ -1,0 +1,11 @@
+void maxTestsTestAssignRelopToBool() {
+	int x = 1;
+	bool k = x < 2;
+	if (k) {
+		print("Your true success in life begins only when you make the commitment to become excellent at what you do. — Brian Tracy");
+	}
+}
+
+void main() {
+     maxTestsTestAssignRelopToBool();
+}

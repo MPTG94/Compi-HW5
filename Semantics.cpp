@@ -1233,6 +1233,10 @@ Statement::Statement(Exp *exp, CaseList *cList) {
         if (!cList->cases[i]->breakList.empty()) {
             buffer.bpatch(cList->cases[i]->breakList, endLabel);
         }
+        if (cList->cases.size() == 1) {
+            // There is only 1 case, so we need to patch the ending
+            buffer.emit("br label %" + endLabel);
+        }
     }
     // Need to add a jump to the default case if none of the other cases was a hit
     buffer.emit("br label %" + cList->cases[defaultIndex]->instruction);
@@ -1303,7 +1307,7 @@ CaseList::CaseList(Statements *states, N *label) {
     this->cases.push_back(tempCase);
     // Printing the exit outside of default
     int loc = buffer.emit("br label @");
-    this->breakList = buffer.makelist({loc, FIRST});
+    this->breakList = buffer.merge(states->breakList, buffer.makelist({loc, FIRST}));
 }
 
 void insertFunctionParameters(Formals *formals) {

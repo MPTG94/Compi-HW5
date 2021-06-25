@@ -1,0 +1,10 @@
+void maxTestsBasicAssignmentTest() {
+	int x;
+	int y;
+	printi(x);	
+	printi(y);
+}
+
+void main() {
+     maxTestsBasicAssignmentTest();
+}

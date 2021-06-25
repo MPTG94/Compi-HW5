@@ -1,0 +1,13 @@
+void Func(bool a, bool s, bool c, bool d) {
+	if (a) print("a");
+	if (s) print("b");
+	if (c) print("c");
+	if (d) print("d");
+}
+void maxTestsTestMultipleBooleans() {
+	Func(true, false, true, false);
+}
+
+void main() {
+     maxTestsTestMultipleBooleans();
+}
