@@ -35,12 +35,16 @@ void printMessage(string message) {
 // Converts a FanC return type, to a LLVM return type
 string GetLLVMType(string type) {
     if (type == "VOID") {
+        if (DEBUG) printMessage("void type");
         return "void";
     } else if (type == "BOOL") {
+        if (DEBUG) printMessage("i1 type");
         return "i1";
     } else if (type == "BYTE") {
+        if (DEBUG) printMessage("i8 type");
         return "i8";
     } else if (type == "STRING") {
+        if (DEBUG) printMessage("i8 pointer type");
         return "i8*";
     } else return "i32";
 }
@@ -94,10 +98,16 @@ void exitLoop(N *first, P *second, Statement *statement) {
     loopCounter--;
     int loc = buffer.emit("br label @");
     string label = buffer.genLabel();
+    if (DEBUG) {
+        printMessage("Backpatching jumps back into another loop iteration");
+    }
     // backpatch the jump back to the loop condition evaluation
     buffer.bpatch(buffer.makelist({first->loc, FIRST}), first->instruction);
     // backpatch the jump inside the loop if the condition is still true
     buffer.bpatch(buffer.makelist({second->loc, FIRST}), second->instruction);
+    if (DEBUG) {
+        printMessage("Backpatching jumps outside of loops");
+    }
     // backpatch the jump outside the loop if the condition is false
     buffer.bpatch(buffer.makelist({second->loc, SECOND}), label);
     // backpatch the unconditional jump at the end of the loop to the condition evaluation
@@ -116,6 +126,9 @@ void exitProgramFuncs(RetType *ret) {
     if (ret->value == "VOID") {
         buffer.emit("ret void");
     } else {
+        if (DEBUG) {
+            printMessage("returning from a non void function");
+        }
         string funcReturnType = GetLLVMType(ret->value);
         buffer.emit("ret " + funcReturnType + " 0");
     }
@@ -253,27 +266,32 @@ Program::Program() : TypeNode("Program") {
     symTab->rows.push_back(printFunc);
     symTab->rows.push_back(printiFunc);
     // Placing the global symbol table at the bottom of the global symbol table stack
+    if (DEBUG) printMessage("pushing global symtab");
     symTabStack.push_back(symTab);
     // Placing the global symbol table at the bottom of the offset stack
     offsetStack.push_back(0);
 
     // Declaring staff functions in LLVM code
+    if (DEBUG) printMessage("declaring staff func headers");
     buffer.emitGlobal("declare i32 @printf(i8*, ...)");
     buffer.emitGlobal("declare void @exit(i32)");
 
     // Declaring staff int specifier
+    if (DEBUG) printMessage("declaring const strings");
     buffer.emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
     // Declaring staff string specifier
     buffer.emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
-    buffer.emitGlobal("@ThrowZeroException = constant [22 x i8] c\"Error division by zero\"");
+    buffer.emitGlobal("@ThrowZeroException = constant [23 x i8] c\"Error division by zero\\00\"");
 
     // declaration of global printi function
+    if (DEBUG) printMessage("declaring staff printi");
     buffer.emitGlobal("define void @printi(i32) {");
     buffer.emitGlobal("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0), i32 %0)");
     buffer.emitGlobal("ret void");
     buffer.emitGlobal("}");
 
     // declaration of global print function
+    if (DEBUG) printMessage("declaring staff print");
     buffer.emitGlobal("define void @print(i8*) {");
     buffer.emitGlobal("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.str_specifier, i32 0, i32 0), i8* %0)");
     buffer.emitGlobal("ret void");
@@ -319,6 +337,7 @@ FuncDecl::FuncDecl(RetType *rType, TypeNode *id, Formals *funcParams) {
         if (isDeclared(funcParams->formals[i]->value) || funcParams->formals[i]->value == id->value) {
             // Trying to shadow inside the function a variable that was already declared
             // Or trying to name a function with the same name as one of the function parameters
+            if (DEBUG) printMessage("attempt to shadow parameter");
             output::errorDef(yylineno, funcParams->formals[i]->value);
             exit(0);
         }
@@ -326,6 +345,7 @@ FuncDecl::FuncDecl(RetType *rType, TypeNode *id, Formals *funcParams) {
         for (unsigned int j = i + 1; j < funcParams->formals.size(); ++j) {
             if (funcParams->formals[i]->value == funcParams->formals[j]->value) {
                 // Trying to declare a function where 2 parameters or more have the same name
+                if (DEBUG) printMessage("attempt to redeclare");
                 output::errorDef(yylineno, funcParams->formals[i]->value);
                 exit(0);
             }
@@ -336,6 +356,7 @@ FuncDecl::FuncDecl(RetType *rType, TypeNode *id, Formals *funcParams) {
     value = id->value;
     if (funcParams->formals.size() != 0) {
         // Saving the types of all the different function parameters
+        if (DEBUG) printMessage("pushing formals");
         for (auto &formal : funcParams->formals) {
             type.push_back(formal->type);
         }
@@ -368,6 +389,9 @@ FuncDecl::FuncDecl(RetType *rType, TypeNode *id, Formals *funcParams) {
 
     for (int i = 0; i < funcParams->formals.size(); ++i) {
         // creating registers for all func parameters
+        if (DEBUG) {
+            printMessage("creating registers for all func parameters");
+        }
         string ptrRegister = registerPool.GetNewRegister();
         buffer.emit("%" + ptrRegister + " = getelementptr [" + to_string(funcParams->formals.size()) + " x i32], [" +
                     to_string(funcParams->formals.size()) + " x i32]* %args, i32 0, i32 " + to_string(currentRunningFunctionArgumentsNumber - i - 1));
@@ -375,6 +399,9 @@ FuncDecl::FuncDecl(RetType *rType, TypeNode *id, Formals *funcParams) {
         string funcArgumentType = GetLLVMType(funcParams->formals[i]->type);
         if (funcArgumentType != "i32") {
             // need to zero extend
+            if (DEBUG) {
+                printMessage("zero extending func parameter register");
+            }
             dataRegister = registerPool.GetNewRegister();
             buffer.emit("%" + dataRegister + " = zext " + funcArgumentType + " %" + to_string(i) + " to i32");
         }
@@ -400,9 +427,11 @@ Call::Call(TypeNode *id) {
                     regName = registerPool.GetNewRegister();
                     if (returnTypeFromFunc == "void") {
                         // Calling a void function
+                        if (DEBUG) printMessage("calling a void func");
                         buffer.emit("call " + returnTypeFromFunc + " @" + funcName + " ()");
                     } else {
                         // Calling a non void function and saving the result in the register
+                        if (DEBUG) printMessage("calling a non void func");
                         buffer.emit("%" + regName + " = call " + returnTypeFromFunc + " @" + funcName + " ()");
                     }
                     return;
@@ -415,6 +444,7 @@ Call::Call(TypeNode *id) {
         }
     }
     // We didn't find a declaration of the desired function
+    if (DEBUG) printMessage("no function found");
     output::errorUndefFunc(yylineno, id->value);
     exit(0);
 }
@@ -440,6 +470,7 @@ Call::Call(TypeNode *id, ExpList *list) {
                             continue;
                         } else if (list->list[i].type == "BYTE" && row->type[i] == "INT") {
                             // The function receives int as a parameter, in this instance a byte was sent, need to cast from BYTE to INT
+                            if (DEBUG) printMessage("casting BYTE to INT");
                             string dataRegister = registerPool.GetNewRegister();
                             buffer.emit("%" + dataRegister + " = zext i8 %" + list->list[i].regName + " to i32");
                             funcArgs += GetLLVMType("INT") + " %" + dataRegister + ",";
@@ -459,10 +490,12 @@ Call::Call(TypeNode *id, ExpList *list) {
                     string returnTypeFromFunc = GetLLVMType(value);
                     regName = registerPool.GetNewRegister();
                     if (returnTypeFromFunc == "void") {
+                        if (DEBUG) printMessage("calling void function");
                         // Calling a void function
                         buffer.emit("call " + returnTypeFromFunc + " @" + funcName + " " + funcArgs);
                     } else {
                         // Calling a non void function and saving the result in the register
+                        if (DEBUG) printMessage("calling non void function, saving result");
                         buffer.emit("%" + regName + " = call " + returnTypeFromFunc + " @" + funcName + " " + funcArgs);
                     }
                     // Creating a code section to return to after the function call has ended.
@@ -473,6 +506,7 @@ Call::Call(TypeNode *id, ExpList *list) {
                 } else {
                     // The number of parameters we received does not match the number the function takes as arguments
                     // Removing the return type of the function so we have an easy list of requested parameters to print
+                    if (DEBUG) printMessage("error with number of function parameters sent");
                     row->type.pop_back();
                     output::errorPrototypeMismatch(yylineno, id->value, row->type);
                     exit(0);
@@ -481,6 +515,7 @@ Call::Call(TypeNode *id, ExpList *list) {
         }
     }
     // We didn't find a declaration of the desired function
+    if (DEBUG) printMessage("no function found");
     output::errorUndefFunc(yylineno, id->value);
     exit(0);
 }
@@ -671,13 +706,22 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
             }
             string leftRegister = e1->regName;
             string rightRegister = e2->regName;
+            if (DEBUG) {
+                printMessage("Checking the need for register extension based on type");
+            }
             if (llvmSize == "i32") {
                 if (e1->type == "BYTE") {
+                    if (DEBUG) {
+                        printMessage("zero extending left side");
+                    }
                     // This is a byte register, need to zero extend to i32 for int operations
                     leftRegister = registerPool.GetNewRegister();
                     buffer.emit("%" + leftRegister + " = zext i8 %" + e1->regName + " to i32");
                 }
                 if (e2->type == "BYTE") {
+                    if (DEBUG) {
+                        printMessage("zero extending right side");
+                    }
                     // This is a byte register, need to zero extend to i32 for int operations
                     rightRegister = registerPool.GetNewRegister();
                     buffer.emit("%" + rightRegister + " = zext i8 %" + e2->regName + " to i32");
@@ -732,17 +776,29 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                 // Checking if the right hand side is 0 and jumping accordingly
                 buffer.emit("%" + condition + " = icmp eq i32 %" + rightRegister + ", 0");
                 int zeroDivisionBranchCheck = buffer.emit("br i1 %" + condition + ", label @, label @");
+                if (DEBUG) {
+                    printMessage("Printing the zero division exception handler case");
+                }
                 string zeroDivisionCaseLabel = buffer.genLabel();
                 string zeroDivisionExceptionReg = registerPool.GetNewRegister();
-                buffer.emit("%" + zeroDivisionExceptionReg + " = getelementptr [22 x i8], [22 x i8]* @ThrowZeroException, i32 0, i32 0");
+                if (DEBUG) {
+                    printMessage("arrived here");
+                }
+                buffer.emit("%" + zeroDivisionExceptionReg + " = getelementptr [23 x i8], [23 x i8]* @ThrowZeroException, i32 0, i32 0");
                 buffer.emit("call void @print(i8* %" + zeroDivisionExceptionReg + ")");
                 buffer.emit("call void @exit(i32 0)");
                 int normalDivisionCaseLabelLoc = buffer.emit("br label @");
+                if (DEBUG) {
+                    printMessage("Printing the normal division handler case");
+                }
                 string normalDivisionBranchLabel = buffer.genLabel();
                 // Backpatching the check, so that it jumps to the handler for zero division
                 buffer.bpatch(buffer.makelist({zeroDivisionBranchCheck, FIRST}), zeroDivisionCaseLabel);
                 // Backpatching the check, so that is jumps to the normal divison handler
                 buffer.bpatch(buffer.makelist({zeroDivisionBranchCheck, SECOND}), normalDivisionBranchLabel);
+                if (DEBUG) {
+                    printMessage("arrived here, no nullptr");
+                }
                 // Backpatching the emitted label, so it jumps to the correct place
                 buffer.bpatch(buffer.makelist({normalDivisionCaseLabelLoc, FIRST}), normalDivisionBranchLabel);
                 llvmSize = "i32";
@@ -791,14 +847,17 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
             if (op->value == "and") {
                 int firstCheckIsFalseBranchJump = buffer.emit("br label @");
                 string leftIsFalseLabel = buffer.genLabel();
+                if (DEBUG) printMessage("generating non short circuit labels");
                 int secondCheckIsFalseLabel = buffer.emit("br label @");
                 end = buffer.genLabel();
                 // bpatch, so that if the first boolean expression in the AND is false, we give the register value 0 (false)
                 // otherwise we take the value of e2.regName
+                if (DEBUG) printMessage("emitting phi instruction");
                 buffer.emit("%" + regName + " = phi i1 [%" + e2->regName + ", %" + instruction + "],[0, %" + leftIsFalseLabel + "]");
                 // backpatch the jump to check the second condition in the AND if it's true
                 buffer.bpatch(buffer.makelist({leftHandInstr->loc, FIRST}), leftHandInstr->instruction);
                 // backpatch the jump outside of the expression if the first condition is false
+                if (DEBUG) printMessage("backpatching branch labels");
                 buffer.bpatch(buffer.makelist({leftHandInstr->loc, SECOND}), leftIsFalseLabel);
                 // backpatch the jump outside of the expression to after the if block
                 buffer.bpatch(buffer.makelist({firstCheckIsFalseBranchJump, FIRST}), end);
@@ -809,16 +868,19 @@ Exp::Exp(Exp *e1, TypeNode *op, Exp *e2, const string &taggedTypeFromParser, P *
                     valueAsBooleanValue = false;
                 }
             } else if (op->value == "or") {
+                if (DEBUG) printMessage("handling or case");
                 int firstCheckIsTrueBranchJump = buffer.emit("br label @");
                 string leftIsTrueLabel = buffer.genLabel();
                 int secondCheckIsTrueLabel = buffer.emit("br label @");
                 end = buffer.genLabel();
                 // bpatch, so that if the first boolean expression in the OR is true, we give the register value 1 (true)
                 // otherwise we take the value of e2.regName (either true or false, but still the correct value)
+                if (DEBUG) printMessage("emitting phi instruction");
                 buffer.emit("%" + regName + " = phi i1 [%" + e2->regName + ", %" + instruction + "],[1, %" + leftIsTrueLabel + "]");
                 // backpatch the jump to outside if the if, in case the first expression is true
                 buffer.bpatch(buffer.makelist({leftHandInstr->loc, FIRST}), leftIsTrueLabel);
                 // backpatch the jump to the second expression of the if, in case the first expression is false
+                if (DEBUG) printMessage("backpatching branch labels");
                 buffer.bpatch(buffer.makelist({leftHandInstr->loc, SECOND}), leftHandInstr->instruction);
                 // backpatch the jump outside of the expression to after the if block
                 buffer.bpatch(buffer.makelist({firstCheckIsTrueBranchJump, FIRST}), end);
@@ -874,9 +936,15 @@ string loadVariableFromSymTab(int offset, string type) {
     string reg = registerPool.GetNewRegister();
     string ptrRegister = registerPool.GetNewRegister();
     if (offset >= 0) {
+        if (DEBUG) {
+            printMessage("Loading variable declared inside function");
+        }
         // this variable is declared inside the function, and not part of the function parameters
         buffer.emit("%" + ptrRegister + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     } else if (offset < 0 && currentRunningFunctionArgumentsNumber > 0) {
+        if (DEBUG) {
+            printMessage("Loading function parameter");
+        }
         // this variable is one of the function parameters
         buffer.emit("%" + ptrRegister + " = getelementptr [" + to_string(currentRunningFunctionArgumentsNumber) + " x i32], [" +
                     to_string(currentRunningFunctionArgumentsNumber) + " x i32]* %args, i32 0, i32 " +
@@ -892,6 +960,9 @@ string loadVariableFromSymTab(int offset, string type) {
     string varType = GetLLVMType(type);
     string regName = reg;
     if (varType != "i32") {
+        if (DEBUG) {
+            printMessage("truncating requested register width to correct size");
+        }
         // Shortening the new register to it's correct width
         regName = registerPool.GetNewRegister();
         buffer.emit("%" + regName + " = trunc i32 %" + reg + " to " + varType);
@@ -1052,9 +1123,15 @@ string saveNewDataOnStackVariable(string sourceReg, string sourceType, int offse
     buffer.emit("%" + destReg + " = add i32 0,%" + dataRegister);
     string regPtr = registerPool.GetNewRegister();
     if (offset >= 0) {
+        if (DEBUG) {
+            printMessage("Saving variable declared in function");
+        }
         // This is a stack assigned variable
         buffer.emit("%" + regPtr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     } else if (offset < 0 && currentRunningFunctionArgumentsNumber > 0) {
+        if (DEBUG) {
+            printMessage("Saving function parameter");
+        }
         // This is a function parameter
         buffer.emit("%" + regPtr + " = getelementptr [" + to_string(currentRunningFunctionArgumentsNumber) +
                     " x i32], [" + to_string(currentRunningFunctionArgumentsNumber) + " x i32]* %args, i32 0, i32 " +
@@ -1165,8 +1242,10 @@ Statement::Statement(Type *t, TypeNode *id) {
     string regPtr = registerPool.GetNewRegister();
     // Getting a new pointer to store the declared variable inside the current scope
     buffer.emit("%" + regPtr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    if (DEBUG) printMessage("Getting a new pointer to store the declared variable inside the current scope");
     string dataRegister = regName;
     if (regType != "i32") {
+        if (DEBUG) printMessage("Need to extend the variable so it fits inside our stack");
         // Need to extend the variable so it fits inside our stack
         dataRegister = registerPool.GetNewRegister();
         buffer.emit("%" + dataRegister + " = zext " + regType + " %" + regName + " to i32");
@@ -1252,7 +1331,7 @@ Statement::Statement(Exp *exp, CaseList *cList) {
     continueList = vector<pair<int, BranchLabelIndex>>();
     continueList.reserve(continueList.size() + cList->continueList.size());
     continueList.insert(continueList.end(), cList->continueList.begin(), cList->continueList.end());
-    for (auto & i : cList->cases) {
+    for (auto &i : cList->cases) {
         continueList.reserve(continueList.size() + i->continueList.size());
         continueList.insert(continueList.end(), i->continueList.begin(), i->continueList.end());
     }
@@ -1330,20 +1409,9 @@ CaseList::CaseList(Statements *states, N *label) {
     this->continueList = states->continueList;
 }
 
-void insertFunctionParameters(Formals *formals) {
-    for (unsigned int i = 0; i < formals->formals.size(); ++i) {
-        vector<string> nType = {formals->formals[i]->type};
-        shared_ptr<SymbolTableRow> nParameter = make_shared<SymbolTableRow>(formals->formals[i]->value, nType, -i - 1, false);
-        symTabStack.back()->rows.push_back(nParameter);
-    }
-}
-
-Funcs::Funcs() {
-    if (DEBUG) printMessage("I am in funcs");
-    if (strcmp(yytext, "") != 0) {
-        output::errorSyn(yylineno);
-        exit(0);
-    }
+TypeNode *parseBooleanCondition(Exp *leftHandInstr) {
+    TypeNode *node = new P(leftHandInstr);
+    return node;
 }
 
 P::P(Exp *leftHandInstr) {
@@ -1360,30 +1428,53 @@ N::N() {
     instruction = buffer.genLabel();
 }
 
-TypeNode *parseBooleanCondition(Exp *leftHandInstr) {
-    TypeNode *node = new P(leftHandInstr);
-    return node;
-}
-
 void backpatchIf(M *label, Exp *exp) {
     int loc = buffer.emit("br label @");
     string end = buffer.genLabel();
+    if (DEBUG) {
+        printMessage("Backpatching if statement");
+    }
     // Patching the jump to the if instruction in case the IF condition is true
     buffer.bpatch(exp->trueList, label->instruction);
     // Patching the jump outside of the if in case the IF condition is false
     buffer.bpatch(exp->falseList, end);
+    if (DEBUG) {
+        printMessage("Backpatching lists");
+    }
     buffer.bpatch(buffer.makelist({loc, FIRST}), end);
+}
+
+void insertFunctionParameters(Formals *formals) {
+    for (unsigned int i = 0; i < formals->formals.size(); ++i) {
+        vector<string> nType = {formals->formals[i]->type};
+        shared_ptr<SymbolTableRow> nParameter = make_shared<SymbolTableRow>(formals->formals[i]->value, nType, -i - 1, false);
+        symTabStack.back()->rows.push_back(nParameter);
+    }
 }
 
 void backpatchIfElse(M *label1, N *label2, Exp *exp) {
     int loc = buffer.emit("br label @");
     string end = buffer.genLabel();
+    if (DEBUG) {
+        printMessage("Backpatching if else statement");
+    }
     // Patching the jump to the if instruction in case the IF condition is true
     buffer.bpatch(exp->trueList, label1->instruction);
     // Patching the jump to the else instruction in case the IF condition is false
     buffer.bpatch(exp->falseList, label2->instruction);
+    if (DEBUG) {
+        printMessage("Backpatching lists");
+    }
     buffer.bpatch(buffer.makelist({label2->loc, FIRST}), end);
     buffer.bpatch(buffer.makelist({loc, FIRST}), end);
+}
+
+Funcs::Funcs() {
+    if (DEBUG) printMessage("I am in funcs");
+    if (strcmp(yytext, "") != 0) {
+        output::errorSyn(yylineno);
+        exit(0);
+    }
 }
 
 Statement *mergeIfElseLists(Statement *ifStatement, Statement *elseStatement) {
