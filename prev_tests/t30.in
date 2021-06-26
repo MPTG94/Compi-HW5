@@ -1,0 +1,15 @@
+int foo(){
+  print("Print this");
+  return 10;
+}
+
+int fooNot(){
+  print("Dont print this");
+  return 10;
+}
+
+void main() {
+  int x = 10;
+  int c;
+  x = x/c;
+}

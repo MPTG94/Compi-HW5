@@ -1,0 +1,35 @@
+int foo(){
+  print("Print this");
+  return 10;
+}
+
+int fooNot(){
+  print("Dont print this");
+  return 10;
+}
+void callFoos(int x, int y){
+  if(foo()>x){
+    print("10 > x");
+  }
+  {
+    while(y>5 or fooNot()>100){
+      if(y>20){
+        y=y-5;
+        if(y==90){
+          break;
+        }
+        continue;
+      }
+      y=y-1;
+      fooNot();
+    }
+    print("While block end");
+  }
+  print("y should be 90");
+  printi(y);
+}
+
+void main() {
+  int g = 100;
+  callFoos(5,g);
+}

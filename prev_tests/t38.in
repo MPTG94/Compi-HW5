@@ -1,0 +1,27 @@
+bool foo(){
+  print("Print this");
+  return true;
+}
+
+bool fooNot(){
+  print("Dont print this");
+  return true;
+}
+
+
+void main() {
+  int x = 10;
+  int y = 10b;
+  bool boolean = x==y;
+  if(
+      (boolean and foo())
+       and 
+       (boolean or fooNot())
+         or 
+         (fooNot() and fooNot())
+   ){
+    print("Good");
+    return;
+  }
+  print("Bad");
+}

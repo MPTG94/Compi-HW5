@@ -1,0 +1,24 @@
+int foo(){
+  print("Print this");
+  return 10;
+}
+
+int fooNot(){
+  print("Dont print this");
+  return 10;
+}
+void callFoos(int x, int y){
+  if(foo()>x){
+    print("10 > x");
+  }
+  {
+    y=99;
+  }
+  print("Y should be 99");
+  printi(y);
+}
+
+void main() {
+  int g = 100;
+  callFoos(5,g);
+}

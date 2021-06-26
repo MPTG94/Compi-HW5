@@ -1,0 +1,42 @@
+//short circuit, functions
+bool f1() {
+    print("f1.");
+    return true;
+}
+
+bool f2() {
+    print("f2.");
+    return false;
+}
+
+void main() {
+    if (f1() or f2())
+        int x;
+    
+    if (f2() or f1())
+        int x;
+    
+    if (not f2() or f1())
+        int x;
+    
+    if (f1() and f2())
+        int x;
+    
+    if (f2() and f1())
+        int x;
+    
+    if (not f2() and f1())
+        int x;
+    
+    int i = 0;
+    while(f1() and i < 2) {
+        i = i + 2;
+        printi(i);
+    }
+    
+    i = 0;
+    while(f2() or i < 2) {
+        i = i + 3;
+        printi(i);
+    }
+}

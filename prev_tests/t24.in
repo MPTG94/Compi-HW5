@@ -1,0 +1,47 @@
+int zero1() { return 0; }
+byte zeroB2() { return 0b; }
+int printAndRet() {
+    print("called printAndRet");
+    return 1;
+}
+int foo(
+    int a0,
+    int a1,
+    int a2,
+    int a3,
+    int a4,
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    int a9
+) {
+    print("a6=");
+    printi(a6);
+    print("a9=");
+    printi(a9);
+    return 0;
+}
+
+int bar(int x, int y)
+{
+    return y-x;
+}
+
+int fu(int x) {
+    return 10-x;
+}
+
+
+void main() {
+    printi(zero1());
+    printi(zeroB2());
+    printi(zero1() + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 10 + 10 + 11 + 12 + 13 + zeroB2());
+    printi(zero1() + (1 + (2 + (3 + (4 + (5 + (6 + (7 + (11 + (9 + (10 + (11 + (12 + (13 + zeroB2()))))))))))))));
+    printi((((((((((((((zero1() + 1) + 2) + 3) + 4) + 5) + 6) + 7) + 8) + 9) + 10) + 11) + 12) + 78) + zeroB2());
+    printAndRet();
+    printi(zero1() + zero1() + zeroB2());
+    printi(printAndRet());
+    foo(0,1,2,3,4,5,6,7,8,9);
+    foo(0,1+bar(4,19),2*19,3,4,5,6+bar(2,3)/fu(0),7,8,9-fu(20));
+}

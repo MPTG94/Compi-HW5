@@ -1,0 +1,11 @@
+
+
+void main() {
+  int x = 10;
+  int y = 10b;
+  if(x==y){
+    print("Good");
+    return;
+  }
+  print("Bad");
+}

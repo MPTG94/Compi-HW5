@@ -1,0 +1,36 @@
+//changing function arguments
+void change(int x, bool m, byte l) {
+    printi(x);
+    x = 100;
+    printi(x);
+    int y = 3;
+    x = y;
+    printi(x);
+    if (m) {
+        print("y is true");
+    }
+    m = false;
+    if (m) {
+        print("should not print");
+    }
+    bool w = true;
+    m = w;
+    if (m) {
+        print("y is true");
+    }
+    printi(l);
+    l = 254b;
+    printi(l);
+    byte o = 12b;
+    l = l + o;
+    printi(l);
+}
+
+void main() {
+    change(5, true, 144b);
+}
+
+
+
+
+

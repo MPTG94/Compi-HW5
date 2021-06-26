@@ -1,0 +1,7 @@
+//div by zero (computed val)
+byte foo() {
+    return 2b;
+}
+void main() {
+    printi(100b / (foo() - foo()));
+}

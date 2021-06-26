@@ -1,0 +1,40 @@
+//function calls, return values
+int func1() {
+    return 1 + 2 * 3 + 4;
+}
+
+byte func2() {
+    return 100b;
+}
+
+bool func3() {
+    return true;
+}
+
+int func4() {
+    return 67b;
+}
+
+bool func5(bool x) {
+    return x or not x;
+}
+
+int func6(byte p){
+    return p + 3;
+}
+
+bool func7(byte x, int y) {
+    return x <= y and x != y;
+}
+
+
+
+void main() {
+    printi(func1());
+    printi(func2());
+    if (func3()) print("true"); else print("false");
+    printi(func4());
+    if (func5(true)) print("true"); else print("false");
+    printi(func6(2b));
+    if (func7(5b,100)) print("true"); else print("false");
+}

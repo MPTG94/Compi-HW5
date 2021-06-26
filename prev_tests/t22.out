@@ -1,0 +1,54 @@
+ff1
+or1 ok
+ff1
+ff2
+or2 ok
+ff1
+ff2
+and1 ok
+ff2
+ff2
+should print
+ff2
+ff1
+ff2
+aha!
+ff2
+ff1
+yes
+ff1
+no
+ff1
+no
+ff1
+no
+ff1
+1
+ff2
+ff1
+0
+ff1
+ff1
+1
+ff2
+1
+ff1
+1
+ff1
+ff2
+1
+ff1
+ff2
+ff1
+ff1
+ff1
+1
+0
+1
+ff2
+ff1
+ff1
+ff2
+1
+1
+1

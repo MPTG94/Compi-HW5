@@ -1,0 +1,16 @@
+int foo(){
+  print("Print this");
+  return 10;
+}
+
+int fooNot(){
+  print("Dont print this");
+  return 10;
+}
+
+void main() {
+  int x = 1;
+  if(foo()>5 or fooNot()==10){
+    print("Good job");
+  }
+}

@@ -1,0 +1,19 @@
+int foo(){
+  print("Print this");
+  return 10;
+}
+
+int fooNot(){
+  print("Dont print this");
+  return 10;
+}
+
+void main() {
+  int x = 1;
+  bool boolean = x>5 or 10<20;
+  if(boolean){
+    print("boolean is true");
+  }else{
+    print("Dont print this");
+  }
+}

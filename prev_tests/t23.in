@@ -1,0 +1,24 @@
+bool little(bool x, bool y, bool z, int a, int b1, int c, int d, int e, int f, bool w)
+{
+    printi(24);
+    return x and y and z and a < b1 and b1 < c and c < d and d <= e and e <= f and not w and x and y and z and not w and a + b1 <= a + b1 + c + d + e + f + 1;
+}
+
+bool little2(bool x, bool y, bool z, int a, int b1, int c, int d, int e, int f, bool w)
+{
+    printi(777);
+    return x or y and z and not w and y or not x and y or x or w and not y and a+b1+c+d+e+f<50;
+}
+
+void main()
+{
+    if (little(true,true,true,1,2,3,4,5,6,false))
+        print("ok");
+    if (little2(false,false,true,9,8,7,6,5,4,false)) {
+        print("should not print");
+    }
+    if (little2(true,false,true,9,8,7,6,5,4,false)) {
+        print("should print");
+    }
+
+}

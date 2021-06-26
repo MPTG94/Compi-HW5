@@ -1,0 +1,27 @@
+//arithmetic
+int mod(int lhs, int rhs) {
+    rhs = lhs / rhs * rhs;
+    return lhs - rhs;
+}
+
+void main() {
+    printi(8);
+    printi(150b);
+    printi(1+2+3+1);
+    printi(120b-50b-1b-7b);
+    printi(10-2*3+1);
+    printi(1338-8b);
+    printi(10/2);
+    printi(1+400/3b);
+
+    print("0 mod 11 = ");
+    printi(mod(0,11));
+    print("18 mod 2 = ");
+    printi(mod(18,2));
+    print("20 mod 3 = ");
+    printi(mod(20,3));
+    printi(10*2/5);
+    printi(10000/10/10/10);
+    printi(100*4/5*3/2);
+    printi(120+100-90+30/10*2);
+}
